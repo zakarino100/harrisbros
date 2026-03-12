@@ -38,3 +38,12 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 ---
 
 Add whatever helps you do your job. This is your cheat sheet.
+
+## Local shortcuts
+
+### Whisper transcription
+
+- Mac shell shortcut: `transcribe`
+- Backed by: `/opt/homebrew/lib/node_modules/openclaw/skills/openai-whisper-api/scripts/transcribe.sh`
+- Example: `transcribe ~/Desktop/note.m4a`
+- Requires: `OPENAI_API_KEY`
