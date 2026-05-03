@@ -217,10 +217,29 @@ interface ParsedReply {
   };
 }
 
+interface ParsedReply {
+  cleanText: string;
+  delayedText: string | null;   // text after <<HOLD>> — sent 3 min later
+  controls: {
+    handoff: string | null;
+    stop: boolean;
+    disqualify: string | null;
+    win: string | null;
+  };
+}
+
 function parseAssistantOutput(text: string): ParsedReply {
   const controls: ParsedReply["controls"] = { handoff: null, stop: false, disqualify: null, win: null };
 
+  // Split on <<HOLD>> — part before is the holding message, part after is the delayed quote
+  let delayedText: string | null = null;
   let clean = text;
+  const holdIdx = text.search(/<<HOLD>>/i);
+  if (holdIdx !== -1) {
+    clean = text.slice(0, holdIdx).trim();
+    delayedText = text.slice(holdIdx + "<<HOLD>>".length).trim() || null;
+  }
+
 
   const handoffMatch = /<<HANDOFF:\s*([^>]+)>>/i.exec(clean);
   if (handoffMatch) {
@@ -245,7 +264,7 @@ function parseAssistantOutput(text: string): ParsedReply {
     clean = clean.replace(winMatch[0], "").trim();
   }
 
-  return { cleanText: clean, controls };
+  return { cleanText: clean, delayedText, controls };
 }
 
 // ─── STOP keyword detection (deterministic, do not rely on LLM) ────────────────
@@ -535,6 +554,42 @@ async function runAssistantTurn(
       }
     } catch (err: any) {
       smsError = String(err?.message ?? err);
+    }
+
+    // ── Delayed quote: if Hayden used <<HOLD>>, send the quote message after 3 minutes ──
+    if (parsed.delayedText && lead.phone) {
+      const delayMs = 3 * 60 * 1000; // 3 minutes
+      const delayedBody = parsed.delayedText;
+      const phoneNum = lead.phone;
+      const fromNum = tenant.twilio_from;
+      const convId = conversation.id;
+      const tenantId = tenant.id;
+      const discordThreadId = (conversation as any).discord_thread_id ?? null;
+
+      setTimeout(async () => {
+        try {
+          const sid = await sendSms(phoneNum, delayedBody, fromNum);
+          await insertConversationMessage({
+            conversation_id: convId,
+            tenant_id: tenantId,
+            role: "assistant",
+            body: delayedBody,
+            twilio_sid: (sid as any)?.sid ?? null,
+            model_used: modelUsed,
+            tokens_in: null, tokens_out: null, cost_cents: null, error: null,
+          });
+          await updateConversation(convId, {
+            last_message_at: new Date().toISOString(),
+            last_role: "assistant" as const,
+          });
+          if (discordThreadId) {
+            await mirrorSmsToThread(discordThreadId, "assistant", delayedBody).catch(() => {});
+          }
+          console.log(`[conversation] Delayed quote sent for conv ${convId}`);
+        } catch (err: any) {
+          console.error(`[conversation] Delayed quote failed for conv ${convId}:`, err?.message);
+        }
+      }, delayMs);
     }
   } else {
     smsError = "lead has no phone";
