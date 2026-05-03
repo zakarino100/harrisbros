@@ -657,21 +657,6 @@ async function runAssistantTurn(
     }).catch(() => {});
   }
 
-  // Post to Discord bookings channel on ready-to-book handoff
-  if (parsed.controls.handoff?.includes("ready to book") || parsed.controls.win) {
-    try {
-      await notifyBookingDiscord(
-        tenant.id,
-        tenant.name ?? tenant.id,
-        { leadId: lead.id, name: lead.full_name, phone: lead.phone, email: lead.email },
-        conversation.quoted_price_cents ? conversation.quoted_price_cents / 100 : 0,
-        parsed.controls.handoff ?? parsed.controls.win ?? "Ready to book",
-      );
-    } catch (e: any) {
-      console.error("[conversation] Discord booking notify failed:", e?.message);
-    }
-  }
-
   // AI self-improvement: after a successful handoff/win, extract what worked
   if (parsed.controls.handoff?.includes("ready to book") || parsed.controls.win) {
     try {
