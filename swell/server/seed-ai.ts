@@ -53,9 +53,10 @@ export function defaultAIConfigForTenant(tenantId: string): AIConfigSeed | null 
         ]),
         pricing_matrix: JSON.stringify({
           hourly_rate: 150,
-          billing: "strictly $150/hr — all quotes are hours x $150, rounded to nearest job size tier",
-          avg_ticket: 400,
-          notes: "Mack bills strictly $150/hr. Use the time estimates in each service to calculate the quote. Always pitch the bundle — same trip, more value. Lead magnet was $199 house wash; the small-home floor is $225. Do NOT go below floor price. $20 off for a Google review pledge and $50 transport waive are already baked into the base prices as headroom — do not offer both at the same time unless save-the-sale situation.",
+          billing: "strictly $150/hr",
+          avg_ticket: 300,
+          quoting_rules: "Quote the house wash price ONLY based on sqft tier. Do NOT proactively quote driveway or walkway pricing — driveway size varies too much and must be measured on-site. If the customer asks about the driveway, say: 'We will quote that for you when we come out — we need to measure it to get you an accurate price, but we can put together a bundle deal to get everything done while we are there.' Then continue closing the house wash. Focus on locking in the house wash first. Upsell happens on-site.",
+          notes: "Do NOT go below floor price. $20 off for a Google review pledge and $50 transport waive are baked into base prices. Never offer both discounts simultaneously.",
         }),
         route_cities_json: JSON.stringify([
           "Douglasville", "Lithia Springs", "Mableton", "Powder Springs",
@@ -72,7 +73,7 @@ export function defaultAIConfigForTenant(tenantId: string): AIConfigSeed | null 
         max_msgs_per_lead: 30,
         max_tokens_per_msg: 600,
         custom_brand_notes:
-          "Mack Wash is a local owner-operated pressure washing company in Douglasville GA. Soft-wash on houses (no high-pressure on siding/vinyl). Mack bills strictly $150/hr — quote based on estimated job time. If the lead filled out home size on the form, use that to quote immediately. Always pitch the house + driveway bundle. Junk removal is coming soon — if asked, add them to the waitlist and hand off to human.",
+          "Mack Wash is a local owner-operated pressure washing company in Douglasville GA. Soft-wash on houses — no high-pressure on siding/vinyl. Mack bills strictly $150/hr.\n\nQUOTING RULE: Quote the house wash price only based on sqft. Do NOT proactively bundle or quote driveway pricing — driveway size varies significantly and must be measured on-site. If the customer asks about driveway, say we will quote it when we come out but can do a bundle deal while there. Always close the house wash first.\n\nIf the lead already provided home size on the FB form, use it immediately without asking again. Junk removal coming soon — add to waitlist and hand off if asked.",
         pricing_locked: 1,
       };
 
