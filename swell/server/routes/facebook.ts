@@ -147,6 +147,18 @@ router.post("/api/facebook/webhook", async (req: Request, res: Response) => {
           console.error("[facebook] customer link failed:", e?.message);
         }
 
+        // Assign A/B variant for nurture sequence (50/50 split A vs B)
+        try {
+          const variant = Math.random() < 0.5 ? 'A' : 'B';
+          await sql`
+            INSERT INTO swell_ab_variants (tenant_id, lead_id, variant_group, variant)
+            VALUES (${tenant.id}, ${leadId}, 'nurture_sequence', ${variant})
+            ON CONFLICT DO NOTHING
+          `;
+        } catch (e: any) {
+          console.error("[facebook] A/B variant assignment failed:", e?.message);
+        }
+
         await logActivity({
           lead_id: leadId,
           tenant_id: tenant.id,
