@@ -860,9 +860,11 @@ export async function fireNurtureJob(opts: {
       "Short. Confident. Not desperate.",
 
     touch_24h:
-      "TOUCH 3 (24h — still nothing). Go back to closing. Ask the qualifying question directly as if starting fresh — don't reference the prior messages. " +
-      "Short re-open: \"Hey [name] — [question from your initial message, e.g. 'how many windows does the home have?' or 'what size is the house?']. I can get you a number real quick.\" " +
-      "Assume they want it. Be direct.",
+      "TOUCH 3 (24h — still nothing). Go back to closing. Come in direct like you're starting fresh. " +
+      "If you have their address from the lead info, USE IT — do NOT ask for it again. " +
+      "Short re-open: confirm the address or just go straight to the qualifying question (number of windows for window cleaning, sqft for pressure washing). " +
+      "Example: \"Hey [name] — still want to get those windows done at [address]? How many windows does the home have?\" " +
+      "Assume they want it. Be direct. One or two sentences max.",
 
     touch_48h:
       "TOUCH 4 (48h). Value-stack and urgency without begging. Remind them what they're getting for the price — full service, same-trip efficiency, quality work. " +
