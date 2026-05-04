@@ -31,7 +31,7 @@ router.get("/api/messages", async (req, res) => {
         ORDER BY created_at DESC LIMIT 1
       ) m ON true
       WHERE c.tenant_id = ${req.tenant!.id}
-        AND l.status NOT IN ('test', 'archived')
+        AND l.status NOT IN ('archived')
         AND (l.full_name IS NULL OR l.full_name NOT LIKE '<test%')
       ORDER BY COALESCE(m.created_at, c.created_at) DESC
       LIMIT 100
