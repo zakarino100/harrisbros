@@ -44,6 +44,34 @@ import { getSlotPromptBlock } from "./scheduling.js";
 import { capiQuoted, capiReadyToBook } from "./meta-capi.js";
 import { extractAndSyncLeadData } from "./lead-extractor.js";
 import { sql } from "../db/index.js";
+import { geocodeAddress } from "./geocoder.js";
+
+// ── Haversine distance (miles) ─────────────────────────────────────────────────
+function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3958.8;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+interface ServiceHub { city: string; lat: number; lon: number; radius_miles?: number; }
+
+function checkServiceArea(
+  leadLat: number, leadLon: number,
+  hubs: ServiceHub[],
+  defaultRadiusMiles = 30,
+): { inArea: boolean; nearestHub: string; distanceMiles: number } {
+  let nearest = hubs[0];
+  let minDist = Infinity;
+  for (const hub of hubs) {
+    const d = haversineMiles(leadLat, leadLon, hub.lat, hub.lon);
+    if (d < minDist) { minDist = d; nearest = hub; }
+  }
+  const radius = nearest?.radius_miles ?? defaultRadiusMiles;
+  return { inArea: minDist <= radius, nearestHub: nearest?.city ?? "unknown", distanceMiles: Math.round(minDist) };
+}
 
 // ─── System prompt builder ─────────────────────────────────────────────────────
 
@@ -63,6 +91,18 @@ function buildSystemPrompt(opts: {
   const businessHours = safeJsonObj(cfg.business_hours_json);
 
   const fullAddress = [lead.address, lead.city, lead.state, lead.zip].filter(Boolean).join(", ") || "(unknown — ask for it)";
+
+  // Service area check ────────────────────────────────────────────────
+  const hubs = safeJsonArr((cfg as any).service_area_hubs_json) as ServiceHub[];
+  let serviceAreaNote = "";
+  if (hubs.length > 0 && (lead as any).address_lat && (lead as any).address_lon) {
+    const check = checkServiceArea((lead as any).address_lat, (lead as any).address_lon, hubs);
+    if (check.inArea) {
+      serviceAreaNote = `\n- ✅ Service area: YES — ${check.distanceMiles} miles from ${check.nearestHub} (within coverage)`;
+    } else {
+      serviceAreaNote = `\n- ❌ Service area: OUT OF RANGE — ${check.distanceMiles} miles from nearest hub (${check.nearestHub}). DISQUALIFY politely. Tell them you don\'t service this area but thank them for reaching out.`;
+    }
+  }
   const leadServiceHint = lead.meta_form_id ? ` (lead came from FB form ${lead.meta_form_id})` : "";
 
   const servicesBlock = services.length
@@ -162,7 +202,7 @@ If the customer commits to the job ("yes book it", "I'll take it", "let's do it"
 - Name: ${lead.full_name || "(unknown)"}
 - Phone: ${lead.phone || "(unknown)"}
 - Email: ${lead.email || "(unknown)"}
-- Address: ${fullAddress}${leadServiceHint}
+- Address: ${fullAddress}${leadServiceHint}${serviceAreaNote}
 - Lead arrived: ${lead.created_at}
 - Current lead status: ${lead.status}
 - Conversation messages so far: ${conversation.total_messages}
@@ -303,6 +343,33 @@ export async function kickoffConversationForNewLead(tenant: Tenant, lead: Lead):
   const cfg = await getAIConfig(tenant.id);
   if (!cfg || cfg.enabled !== true) {
     return { ok: false, reason: "AI disabled for tenant" };
+  }
+
+  // Geocode lead address if not already done, then check service area
+  if (!(lead as any).address_lat && lead.address) {
+    try {
+      const geo = await Promise.race([
+        geocodeAddress(lead.address, lead.city, lead.state, lead.zip),
+        new Promise<null>(resolve => setTimeout(() => resolve(null), 4000)),
+      ]);
+      if (geo) {
+        await sql`
+          UPDATE swell_leads
+          SET address_lat = ${geo.lat}, address_lon = ${geo.lon}
+          WHERE id = ${lead.id}
+        `;
+        (lead as any).address_lat = geo.lat;
+        (lead as any).address_lon = geo.lon;
+      }
+    } catch { /* non-blocking */ }
+  }
+
+  // If we have lat/lon + service area hubs, store in_service_area on lead
+  const hubs = safeJsonArr((cfg as any).service_area_hubs_json) as ServiceHub[];
+  if (hubs.length > 0 && (lead as any).address_lat && (lead as any).address_lon) {
+    const check = checkServiceArea((lead as any).address_lat, (lead as any).address_lon, hubs);
+    await sql`UPDATE swell_leads SET in_service_area = ${check.inArea} WHERE id = ${lead.id}`.catch(() => {});
+    (lead as any).in_service_area = check.inArea;
   }
 
   const conversation = await getOrCreateConversation(tenant.id, lead.id);
@@ -739,6 +806,29 @@ async function runAssistantTurn(
       }
     } catch (e: any) {
       console.error("[learn] Failed to save insight:", e?.message);
+    }
+  }
+
+  // Update A/B variant outcome: booked on ready-to-book, closed on disqualify
+  if (parsed.controls.handoff?.includes("ready to book") || parsed.controls.win) {
+    try {
+      await sql`
+        UPDATE swell_ab_variants
+        SET outcome = 'booked', outcome_at = NOW()
+        WHERE tenant_id = ${tenant.id} AND lead_id = ${lead.id} AND variant_group = 'nurture_sequence'
+      `;
+    } catch (e: any) {
+      console.error("[ab-variant] Failed to mark booked:", e?.message);
+    }
+  } else if (parsed.controls.disqualify) {
+    try {
+      await sql`
+        UPDATE swell_ab_variants
+        SET outcome = 'closed', outcome_at = NOW()
+        WHERE tenant_id = ${tenant.id} AND lead_id = ${lead.id} AND variant_group = 'nurture_sequence' AND outcome IS NULL
+      `;
+    } catch (e: any) {
+      console.error("[ab-variant] Failed to mark closed:", e?.message);
     }
   }
 
