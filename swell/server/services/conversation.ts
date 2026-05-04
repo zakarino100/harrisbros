@@ -779,24 +779,23 @@ async function runAssistantTurn(
 // the next nudge. Cancelled the moment the customer replies.
 
 const NURTURE_INTERVALS_MS: Record<string, number> = {
-  followup_quote:    1  * 60 * 60 * 1000,   // 1h after assistant message → "still want me to lock that route slot?"
-  followup_recovery: 24 * 60 * 60 * 1000,   // 24h with discount nudge
-  last_chance:       72 * 60 * 60 * 1000,   // 72h — final pitch
-  cold_revive:       7  * 24 * 60 * 60 * 1000, // 7d — last try
+  touch_1h:   1  * 60 * 60 * 1000,         // 1h  — quick check-in, assume they got busy
+  touch_6h:   6  * 60 * 60 * 1000,         // 6h  — route/scarcity angle
+  touch_24h:  24 * 60 * 60 * 1000,         // 24h — direct close attempt, ask the question again
+  touch_48h:  48 * 60 * 60 * 1000,         // 48h — value + urgency
+  touch_72h:  72 * 60 * 60 * 1000,         // 72h — last push this week + first discount lever
+  touch_7d:   7  * 24 * 60 * 60 * 1000,    // 7d  — cold revive, fresh angle
+  touch_14d:  14 * 24 * 60 * 60 * 1000,    // 14d — final shot, offer out
 };
 
 async function scheduleNextNurture(tenantId: string, leadId: number, conversationId: number, msgCount: number) {
-  // Pick the next step based on how many assistant turns we've already done.
-  // 1 assistant message → schedule followup_quote (1h)
-  // 2 assistant messages → schedule followup_recovery (24h from now)
-  // 3 assistant messages → schedule last_chance (72h from now)
-  // 4+ assistant messages → schedule cold_revive (7d) once, then stop
-  let kind: keyof typeof NURTURE_INTERVALS_MS;
-  if (msgCount <= 1) kind = "followup_quote";
-  else if (msgCount === 2) kind = "followup_recovery";
-  else if (msgCount === 3) kind = "last_chance";
-  else if (msgCount === 4) kind = "cold_revive";
-  else return; // stop nurturing
+  // 7-touch sequence keyed on how many assistant turns we've done.
+  // Touch 1 (1h), 2 (6h), 3 (24h), 4 (48h), 5 (72h), 6 (7d), 7 (14d) — then stop.
+  const sequence: Array<keyof typeof NURTURE_INTERVALS_MS> = [
+    "touch_1h", "touch_6h", "touch_24h", "touch_48h", "touch_72h", "touch_7d", "touch_14d",
+  ];
+  const kind = sequence[msgCount - 1]; // msgCount is # of assistant turns so far
+  if (!kind) return; // exhausted all touches
 
   const fireAt = new Date(Date.now() + NURTURE_INTERVALS_MS[kind]).toISOString();
   await scheduleNurture({
@@ -847,11 +846,43 @@ export async function fireNurtureJob(opts: {
   // what *kind* of follow-up this is. We log it as a "system" role message,
   // but pass it as a synthetic "user" prod inside runAssistantTurn so
   // Anthropic accepts it.
+  // Hormozi/Cardone-style nurture. Assume the sale. Scarcity-led. Never needy.
   const nudgeMap: Record<string, string> = {
-    followup_quote:    "Follow-up step 1 (1h): customer hasn't replied since you quoted them. Re-pitch the route slot — short, direct, scarcity. Don't quote again, just nudge them to lock it.",
-    followup_recovery: "Follow-up step 2 (24h): still no reply. Use ONE save-the-sale lever — review pledge ($" + cfg.review_discount + " off). Don't beg, frame as a one-time offer.",
-    last_chance:       "Follow-up step 3 (72h): still no reply. Use the OTHER lever — waive the $" + cfg.transport_waive + " transport fee. Make it clear this is the last time you'll reach out about this route.",
-    cold_revive:       "Follow-up step 4 (7d): cold revive. Short, casual, non-salesy — just check if they're still interested. Don't quote.",
+    touch_1h:
+      "TOUCH 1 (1h — no reply yet). They filled out the form — they want this. " +
+      "Keep it short and breezy, not pushy. Just checking back in — assume they got busy. " +
+      "Do NOT re-quote or re-pitch the service. Something like: \"Hey [name], just checking back in — still want to get on the schedule this week?\" " +
+      "One sentence. Wait for their response.",
+
+    touch_6h:
+      "TOUCH 2 (6h — still no reply). Lead the scarcity angle — you're building the route and their spot is open but won't stay that way. " +
+      "Frame it as doing them a favor by checking: \"Finishing up the route card for your area this week. Want to hold your spot before it fills up?\" " +
+      "Short. Confident. Not desperate.",
+
+    touch_24h:
+      "TOUCH 3 (24h — still nothing). Go back to closing. Ask the qualifying question directly as if starting fresh — don't reference the prior messages. " +
+      "Short re-open: \"Hey [name] — [question from your initial message, e.g. 'how many windows does the home have?' or 'what size is the house?']. I can get you a number real quick.\" " +
+      "Assume they want it. Be direct.",
+
+    touch_48h:
+      "TOUCH 4 (48h). Value-stack and urgency without begging. Remind them what they're getting for the price — full service, same-trip efficiency, quality work. " +
+      "Close with a forced A/B: \"We're booking up your area for the week. Does [Day A] or [Day B] work better for you?\" " +
+      "Pick two real days. Force the choice. Do not say 'whenever works for you'.",
+
+    touch_72h:
+      "TOUCH 5 (72h). Last push this week. Now you can drop the FIRST discount lever ($" + cfg.review_discount + " off for a 5-star Google review after the job). " +
+      "Frame as a perk, not a desperation move: \"Still have your spot open. If you book this week I can knock $" + cfg.review_discount + " off if you leave us a quick Google review after — a lot of our customers do. Does [Day] or [Day] work?\" " +
+      "Make them feel like they're getting a deal, not that you're chasing them.",
+
+    touch_7d:
+      "TOUCH 6 (7 days — cold revive). New angle, fresh energy. Don't reference the previous messages. " +
+      "Come in like you're just now thinking of them: \"Hey [name] — Hayden with [business]. We've got a route coming back through your area in a couple weeks. Still want to get it taken care of?\" " +
+      "Short. Casual. No pressure framing. Wait for response.",
+
+    touch_14d:
+      "TOUCH 7 (14 days — final shot). This is your last message. Be direct and give them a clean out so you end strong: " +
+      "\"Last one from me — we're building out next month's route for your area. If you still want to get it done, just reply and I'll lock you in. If the timing's not right, no worries — I'll take you off my list.\" " +
+      "Drop the second discount lever only if it feels right ($" + cfg.transport_waive + " transport waive). Don't beg. End clean.",
   };
 
   await insertConversationMessage({
