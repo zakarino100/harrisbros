@@ -380,9 +380,10 @@ export async function kickoffConversationForNewLead(tenant: Tenant, lead: Lead):
 
   const conversation = await getOrCreateConversation(tenant.id, lead.id);
 
-  // Create Discord lead card + thread (skip if already has a thread from backfill)
+  // Create Discord lead card + thread (skip if already has a thread, or if it's a test lead)
+  const isTestLead = (lead as any).status === "test";
   let discordThreadId: string | null = (lead as any).discord_thread_id ?? null;
-  if (!discordThreadId) {
+  if (!discordThreadId && !isTestLead) {
   try {
     discordThreadId = await notifyNewLeadDiscord(tenant.id, tenant.name ?? tenant.id, {
       leadId: lead.id,
