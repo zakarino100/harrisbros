@@ -607,6 +607,16 @@ async function runAssistantTurn(
     return { ok: true, reason: "stopped" };
   }
 
+  // ── Natural typing delay ───────────────────────────────────────────────────────
+  // Simulate human typing speed (~5 chars/sec) so Hayden doesn’t feel
+  // like an instant bot. Min 2s, max 7s, with a small random jitter.
+  // Skip delay on <<HOLD>> holding messages (those already have a 3-min wait).
+  if (!parsed.delayedText) {
+    const charCount = parsed.cleanText.length;
+    const typingMs = Math.max(2000, Math.min(7000, charCount * 50 + Math.random() * 1500));
+    await new Promise(resolve => setTimeout(resolve, typingMs));
+  }
+
   // Send SMS to lead
   let twilioSid: string | null = null;
   let smsError: string | null = null;
