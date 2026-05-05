@@ -41,6 +41,7 @@ import customersRouter from "./routes/customers.js";
 import adminRouter from "./routes/admin.js";
 import { runSeed } from "./seed.js";
 import { startNurtureLoop } from "./services/nurture-loop.js";
+import { startLeadSyncLoop } from "./services/lead-sync.js";
 import { startDiscordGateway } from "./services/discord-gateway.js";
 import { fireEodCheck, shouldFireEodCheck } from "./services/owner-eod.js";
 import { fireAppointmentReminders } from "./services/appointment-reminders.js";
@@ -114,10 +115,14 @@ app.get(/^\/(?!api\/).*/, (req, res) => {
 
 // ─── Seed tenants on first boot ────────────────────────────────────────────────
 runSeed()
-  .then(() => startNurtureLoop())
+  .then(() => {
+    startNurtureLoop();
+    startLeadSyncLoop();
+  })
   .catch((err) => {
     console.error("[seed]", err);
     startNurtureLoop();
+    startLeadSyncLoop();
   });
 
 // ─── Phase 2: EOD check loop ──────────────────────────────────────────────────────
