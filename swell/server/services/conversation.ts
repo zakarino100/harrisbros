@@ -351,6 +351,15 @@ export async function kickoffConversationForNewLead(tenant: Tenant, lead: Lead):
     return { ok: false, reason: "AI disabled for tenant" };
   }
 
+  // ── Already-started guard ──────────────────────────────────────────────────
+  // If this lead already has an active conversation with messages, don't
+  // kick off again. This prevents the hourly sync from double-scheduling
+  // nurture jobs when a lead was already contacted via backfill or test.
+  const existingConv = await getOrCreateConversation(tenant.id, lead.id);
+  if ((existingConv as any).total_messages > 0) {
+    return { ok: false, reason: "conversation already started" };
+  }
+
   // Geocode lead address if not already done, then check service area
   if (!(lead as any).address_lat && lead.address) {
     try {
