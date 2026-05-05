@@ -371,7 +371,7 @@ router.post("/api/admin/backfill", async (req: Request, res: Response) => {
             notifyNewLeadDiscord(tenant.id, tenant.name, {
               leadId: newLead.id, name: newLead.full_name, phone: newLead.phone, email: newLead.email,
             }).catch(e => console.error("[backfill] discord notify failed:", e?.message));
-            // Hayden opening message (60s delay to feel human)
+            // Hayden opening message — short delay for backfill (SSH sessions are ephemeral)
             setTimeout(() => {
               kickoffConversationForNewLead(tenant, newLead)
                 .then(r => logActivity({ lead_id: newLead.id, tenant_id: tenant.id,
@@ -379,7 +379,7 @@ router.post("/api/admin/backfill", async (req: Request, res: Response) => {
                   direction: "internal", body: r.ok ? `Hayden sent opening to ${newLead.full_name || newLead.phone}` : `AI skipped: ${r.reason}`,
                   metadata: r as any }))
                 .catch(e => console.error("[backfill] AI kickoff failed:", e?.message));
-            }, 60_000);
+            }, 5_000); // 5s for backfill — SSH sessions are short-lived
           }
         } catch (err: any) {
           errors++;
