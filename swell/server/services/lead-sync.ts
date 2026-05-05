@@ -173,12 +173,18 @@ async function syncTenant(tenant: {
                 .catch(() => {});
             }
 
-            // Discord thread
+            // Discord thread — await and save thread ID BEFORE calling kickoff
+            // so the duplicate-thread guardrail in notifyNewLeadDiscord works correctly
             notifyNewLeadDiscord(fullTenant.id, fullTenant.name ?? fullTenant.id, {
               leadId: newLead.id,
               name: newLead.full_name,
               phone: newLead.phone,
               email: newLead.email,
+            }).then(async (threadId) => {
+              if (threadId) {
+                (newLead as any).discord_thread_id = threadId;
+                await sql`UPDATE swell_leads SET discord_thread_id = ${threadId} WHERE id = ${newLead.id}`.catch(() => {});
+              }
             }).catch((e: any) => console.error("[lead-sync] discord failed:", e?.message));
 
             // CAPI

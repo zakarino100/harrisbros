@@ -80,6 +80,24 @@ export async function notifyNewLeadDiscord(
     return null;
   }
 
+  // ── Duplicate-thread guardrail ──────────────────────────────────────────────
+  // Check if this lead already has a Discord thread in the DB. If it does,
+  // return the existing thread ID without creating a duplicate.
+  if (lead.leadId) {
+    try {
+      const { sql } = await import("../db/index.js");
+      const rows = await sql<Array<{ discord_thread_id: string | null }>>`
+        SELECT discord_thread_id FROM swell_leads
+        WHERE id = ${lead.leadId} AND tenant_id = ${tenantId}
+        LIMIT 1
+      `;
+      if (rows[0]?.discord_thread_id) {
+        console.log(`[discord] Lead ${lead.leadId} already has thread ${rows[0].discord_thread_id} — skipping duplicate`);
+        return rows[0].discord_thread_id;
+      }
+    } catch { /* non-blocking, fall through to create */ }
+  }
+
   const crmLink = lead.crmUrl ?? `https://${tenantId.replace(/_/g, "")}.nopressurelaunch.com/leads/${lead.leadId}`;
   const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const notes = (lead as any).notes ?? "";

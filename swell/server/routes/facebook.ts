@@ -367,9 +367,14 @@ router.post("/api/admin/backfill", async (req: Request, res: Response) => {
                 .then(() => markSmsSent(leadId))
                 .catch(e => console.error("[backfill] owner SMS failed:", e?.message));
             }
-            // Discord thread
+            // Discord thread — save thread ID to lead so kickoff doesn't create a duplicate
             notifyNewLeadDiscord(tenant.id, tenant.name, {
               leadId: newLead.id, name: newLead.full_name, phone: newLead.phone, email: newLead.email,
+            }).then(async (threadId) => {
+              if (threadId) {
+                (newLead as any).discord_thread_id = threadId;
+                await sql`UPDATE swell_leads SET discord_thread_id = ${threadId} WHERE id = ${newLead.id}`.catch(() => {});
+              }
             }).catch(e => console.error("[backfill] discord notify failed:", e?.message));
             // Hayden opening message — short delay for backfill (SSH sessions are ephemeral)
             setTimeout(() => {
