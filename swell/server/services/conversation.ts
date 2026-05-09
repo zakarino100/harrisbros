@@ -968,13 +968,17 @@ const NURTURE_INTERVALS_MS: Record<string, number> = {
 };
 
 async function scheduleNextNurture(tenantId: string, leadId: number, conversationId: number, msgCount: number) {
-  // 7-touch sequence keyed on how many assistant turns we've done.
-  // Touch 1 (1h), 2 (6h), 3 (24h), 4 (48h), 5 (72h), 6 (7d), 7 (14d) — then stop.
+  // 7-touch sequence. msgCount is total_messages (user + assistant combined).
+  // Divide by 2 to approximate assistant turn count, capped so we always
+  // schedule at least through touch_14d for long conversations.
   const sequence: Array<keyof typeof NURTURE_INTERVALS_MS> = [
     "touch_1h", "touch_6h", "touch_24h", "touch_48h", "touch_72h", "touch_7d", "touch_14d",
   ];
-  const kind = sequence[msgCount - 1]; // msgCount is # of assistant turns so far
-  if (!kind) return; // exhausted all touches
+  // Use assistant turn count (approx half of total messages); cap at last touch
+  const assistantTurns = Math.ceil(msgCount / 2);
+  const idx = Math.min(assistantTurns - 1, sequence.length - 1);
+  const kind = sequence[idx];
+  if (!kind) return; // safety
 
   const fireAt = new Date(Date.now() + NURTURE_INTERVALS_MS[kind]).toISOString();
   await scheduleNurture({
