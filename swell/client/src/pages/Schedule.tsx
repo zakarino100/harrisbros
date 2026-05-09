@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { api, type MePayload } from "../lib/api";
+import { RouteBuilder } from "./RouteBuilder";
 
 interface ScheduleConfig {
   tenant_id: string;
@@ -86,7 +87,7 @@ export function Schedule({ me }: Props) {
   const [editConfig, setEditConfig] = useState<Partial<ScheduleConfig> | null>(null);
   const [saving, setSaving] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
-  const [viewMode, setViewMode] = useState<"week" | "month">("week");
+  const [viewMode, setViewMode] = useState<"week" | "month" | "route">("week");
   const [monthOffset, setMonthOffset] = useState(0);
 
   async function fetchData() {
@@ -629,11 +630,23 @@ export function Schedule({ me }: Props) {
           >
             Month
           </button>
+          <button
+            onClick={() => setViewMode("route")}
+            className={`px-4 py-2 min-h-[44px] rounded-lg font-semibold uppercase text-xs transition-colors flex items-center ${
+              viewMode === "route"
+                ? "bg-[var(--color-gold)] text-black"
+                : "bg-[var(--color-border)] text-[var(--color-text-soft)] hover:bg-[var(--color-gold)] hover:text-black"
+            }`}
+          >
+            Route
+          </button>
         </div>
       </div>
 
-      {/* Day Cards Grid — Week or Month View */}
-      {viewMode === "week" ? (
+      {/* Route Builder View */}
+      {viewMode === "route" ? (
+        <RouteBuilder me={me} config={config} pendingBookings={pendingBookings} />
+      ) : viewMode === "week" ? (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
           {getWeekDays().map((day) => {
             const dayAppts = getAppointmentsForDate(day.date);

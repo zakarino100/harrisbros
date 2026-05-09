@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-inter text-charcoal;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-playfair;
+  }
+  
+  .font-playfair {
+    font-family: 'Playfair Display', serif;
+  }
+  
+  .font-inter {
+    font-family: 'Inter', sans-serif;
+  }
+  
+  .font-cormorant {
+    font-family: 'Cormorant Garamond', serif;
+  }
+}
+
+@layer components {
+  .text-gold {
+    @apply text-[#C9A84C];
+  }
+  
+  .bg-gold {
+    @apply bg-[#C9A84C];
+  }
+  
+  .border-gold {
+    @apply border-[#C9A84C];
+  }
+  
+  .text-navy {
+    @apply text-[#0A1628];
+  }
+  
+  .bg-navy {
+    @apply bg-[#0A1628];
+  }
+  
+  .text-charcoal {
+    @apply text-[#1A1A1A];
+  }
+  
+  .bg-charcoal {
+    @apply bg-[#1A1A1A];
+  }
+  
+  .bg-cream {
+    @apply bg-[#FAF8F5];
+  }
+  
+  .text-cream {
+    @apply text-[#FAF8F5];
+  }
+  
+  .btn-gold {
+    @apply px-8 py-3 bg-gold text-navy font-semibold hover:opacity-90 transition-opacity;
+  }
+  
+  .btn-outline {
+    @apply px-8 py-3 border-2 border-white text-white font-semibold hover:bg-white hover:text-navy transition-all;
+  }
+  
+  .section-padding {
+    @apply px-6 py-16 md:px-12 md:py-24;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}

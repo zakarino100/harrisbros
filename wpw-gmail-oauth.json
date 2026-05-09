@@ -1,0 +1,7 @@
+{
+  "client_id": "1047926513258-kjiga648ngbo4bo40b6uuvomv4k47s45.apps.googleusercontent.com",
+  "client_secret": "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",
+  "refresh_token": "1//01z7uSvI04bSKCgYIARAAGAESNwF-L9IrCsBTA42ukJHQqzdaPvp6t1ExYMxxU0TalXFf26wMnFkrHwZ4CcpWw8a_SwxXvaDU5uo",
+  "email": "contact@wolfpackwashnc.com",
+  "scopes": ["https://www.googleapis.com/auth/gmail.readonly"]
+}

@@ -13,7 +13,9 @@
  *   SWELL_COOKIE_SECRET             ← MUST set in prod (random 32+ char string)
  *   SWELL_APEX_DOMAIN               ← defaults to nopressurelaunch.com
  */
-import "dotenv/config";
+// Force .env to override Replit Secrets (dotenv/config doesn't override existing env vars)
+import { config as dotenvConfig } from "dotenv";
+dotenvConfig({ override: true });
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -48,6 +50,8 @@ import { fireAppointmentReminders } from "./services/appointment-reminders.js";
 import { maybeFireCallReport } from "./services/call-reporter.js";
 import { fireMorningReviewFollowups, sendNoResponseNudges } from "./services/review-followup.js";
 import { listTenants } from "./db/queries.js";
+import { notifyNewLeadDiscord } from "./services/discord.js";
+import { sql } from "./db/index.js";
 import "./db/index.js"; // ensure schema applied
 
 const app = express();
@@ -173,7 +177,47 @@ setInterval(async () => {
 app.listen(port, "0.0.0.0", () => {
   console.log(`🌊  Swell running on :${port}`);
   startDiscordGateway();
+  // Catch-up: fire Discord notifications for any leads that missed them
+  // (happens when server was down during lead arrival or token was wrong)
+  setTimeout(catchUpMissingDiscordNotifications, 8_000);
 });
+
+async function catchUpMissingDiscordNotifications(): Promise<void> {
+  try {
+    const tenants = await listTenants();
+    for (const tenant of tenants) {
+      if (!tenant.enabled) continue; // skip disabled tenants
+      const missed = await sql<Array<{id: number; full_name: string|null; phone: string|null; email: string|null}>>`
+        SELECT id, full_name, phone, email
+        FROM swell_leads
+        WHERE tenant_id = ${tenant.id}
+          AND discord_thread_id IS NULL
+          AND status NOT IN ('archived','test')
+          AND created_at > NOW() - INTERVAL '24 hours'
+        ORDER BY created_at ASC
+        LIMIT 50
+      `;
+      if (!missed.length) continue;
+      console.log(`[startup] Catching up ${missed.length} missed Discord notification(s) for ${tenant.id}`);
+      for (const lead of missed) {
+        try {
+          const threadId = await notifyNewLeadDiscord(tenant.id, tenant.name ?? tenant.id, {
+            leadId: lead.id, name: lead.full_name, phone: lead.phone, email: lead.email,
+          });
+          if (threadId) {
+            await sql`UPDATE swell_leads SET discord_thread_id = ${threadId} WHERE id = ${lead.id}`;
+            console.log(`[startup] Discord catch-up: lead ${lead.id} (${lead.full_name}) → thread ${threadId}`);
+          }
+        } catch (e: any) {
+          console.error(`[startup] Discord catch-up failed for lead ${lead.id}:`, e?.message);
+        }
+        await new Promise(r => setTimeout(r, 500)); // rate limit
+      }
+    }
+  } catch (e: any) {
+    console.error("[startup] Discord catch-up error:", e?.message);
+  }
+}
 
 function landingHtml(): string {
   return `<!doctype html><html><head><meta charset="utf-8"><title>Swell — Blue Ocean</title>

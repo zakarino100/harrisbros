@@ -1,0 +1,5 @@
+2026-05-08 23:31 UTC (May 8th, 7:31 PM ET) - ⚠️  FAILED
+Status Code: Connection failed (curl error 6 - couldn't resolve host)
+Endpoint: https://swell.nopressurelaunch.com/api/health
+Details: Domain resolution failed or server unreachable
+

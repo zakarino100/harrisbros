@@ -202,4 +202,9 @@ export const api = {
     request<{ ok: boolean; previousStatus: string }>(`/api/messages/${convId}/resume-ai`, {
       method: "PATCH",
     }),
+
+  sendSchedulingSms: (apptId: number) =>
+    request<{ ok: boolean; message: string }>(`/api/schedule/appointments/${apptId}/sms-confirm`, {
+      method: "POST",
+    }),
 };

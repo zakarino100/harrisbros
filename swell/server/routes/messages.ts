@@ -8,6 +8,7 @@ import {
   getOrCreateConversation,
   updateConversation,
   findOrCreateCustomer,
+  logActivity,
 } from "../db/queries.js";
 
 const router = Router();
@@ -138,12 +139,27 @@ router.post("/api/messages/:conversationId/send", async (req, res) => {
       error: null,
     });
 
-    // Update conversation last message
+    // Update conversation: mark as handed off (rep is now owner), freeze AI
+    const isFirstRepMessage = conv.status === "active" || conv.status === "nurture";
     await updateConversation(convId, {
       last_role: "rep",
       last_message_at: new Date().toISOString(),
       total_messages: (conv.total_messages || 0) + 1,
+      ...(isFirstRepMessage && { status: "handoff", handoff_reason: "rep_took_over" }),
     });
+
+    // Log activity for learning
+    if (isFirstRepMessage) {
+      const { logActivity } = await import("../db/queries.js");
+      await logActivity({
+        lead_id: conv.lead_id,
+        tenant_id: tenant.id,
+        type: "handoff_initiated",
+        direction: "internal",
+        body: `Rep took over conversation. AI paused.`,
+        metadata: { reason: "rep_took_over" },
+      });
+    }
 
     res.json({ ok: true });
   } catch (err) {
@@ -220,10 +236,13 @@ router.post("/api/messages/new", async (req, res) => {
       error: null,
     });
 
+    // Mark as handed off if this is a new conversation (first message from rep)
+    const isFirstMessage = (conv.total_messages || 0) === 0;
     await updateConversation(conv.id, {
       last_role: "rep",
       last_message_at: new Date().toISOString(),
       total_messages: (conv.total_messages || 0) + 1,
+      ...(isFirstMessage && { status: "handoff", handoff_reason: "rep_initiated" }),
     });
 
     res.json({ ok: true, conversationId: conv.id, leadId: resolvedLeadId });

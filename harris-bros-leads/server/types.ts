@@ -1,0 +1,20 @@
+export type LeadRecord = {
+  id: number;
+  created_at: string;
+  meta_lead_id: string;
+  meta_page_id: string | null;
+  meta_form_id: string | null;
+  meta_campaign_id: string | null;
+  meta_adset_id: string | null;
+  meta_ad_id: string | null;
+  full_name: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  raw_payload: string;
+  sms_alert_sent: number;
+  sms_alert_sent_at: string | null;
+};

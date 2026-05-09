@@ -47,6 +47,7 @@ interface AnalyticsSummary {
   by_source: Array<{ campaign_name: string; ad_name: string; leads: number; conversations: number; bookings: number; close_rate: number }>;
   nurture_performance: Array<{ touch: string; fired: number; replies: number; reply_rate: number; bookings_from: number }>;
   top_messages: Array<{ body: string; role: string; led_to_booking: boolean; conversation_id: number }>;
+  ab_variants: Array<{ variant: string; assigned: number; booked: number; close_rate: number }>;
   insights: any[];
 }
 
@@ -315,6 +316,11 @@ export function Stats({ me }: Props) {
             {/* Messages Tab */}
             {perfTab === 'messages' && (
               <div className="space-y-8">
+                {analytics.nurture_performance.length === 0 && analytics.top_messages.length === 0 && (!analytics.ab_variants || analytics.ab_variants.length === 0) && (
+                  <div className="surface rounded-2xl p-8 text-center">
+                    <p className="text-[var(--color-text-soft)]">No message data yet for this period. Data appears as nurture touches fire and conversations progress.</p>
+                  </div>
+                )}
                 {/* Nurture performance */}
                 {analytics.nurture_performance.length > 0 && (
                   <div className="surface rounded-2xl p-6">
@@ -370,6 +376,34 @@ export function Stats({ me }: Props) {
                           <p className="text-sm text-[var(--color-text-soft)] leading-relaxed italic">
                             "{msg.body.length > 160 ? msg.body.substring(0, 160) + '...' : msg.body}"
                           </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* A/B Test Summary */}
+                {analytics.ab_variants && analytics.ab_variants.length > 0 && (
+                  <div className="surface rounded-2xl p-6">
+                    <h3 className="text-lg font-bold text-[var(--color-text)] mb-4">A/B Test — Nurture Sequence</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {analytics.ab_variants.map((v) => (
+                        <div key={v.variant} className="p-4 bg-[var(--color-bg-soft)] rounded-lg border border-[var(--color-border)]">
+                          <p className="text-xs font-semibold text-[var(--color-text-soft)] uppercase mb-3">Variant {v.variant}</p>
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div>
+                              <p className="text-xl font-bold text-[var(--color-text)]">{v.assigned}</p>
+                              <p className="text-xs text-[var(--color-text-soft)]">Assigned</p>
+                            </div>
+                            <div>
+                              <p className="text-xl font-bold text-[var(--color-text)]">{v.booked}</p>
+                              <p className="text-xs text-[var(--color-text-soft)]">Booked</p>
+                            </div>
+                            <div>
+                              <p className="text-xl font-bold text-[var(--color-gold)]">{v.close_rate}%</p>
+                              <p className="text-xs text-[var(--color-text-soft)]">Close Rate</p>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>

@@ -1,0 +1,28 @@
+Swell Lead Notification Reconciliation - ERROR LOG
+==================================================
+
+Date: Saturday, May 9th, 2026 - 6:19 AM (America/New_York)
+Cron Job ID: 31406cfd-699f-457d-b640-efe7595058b3
+
+ERROR: Database Connection Failed
+---------------------------------
+DNS lookup failed for: db.yrwuxcgvnzrzufcimrxl.aws-1-us-east-1.pooler.supabase.com
+
+Error Code: ENOTFOUND / NXDOMAIN
+
+Details:
+- Could not resolve the Supabase hostname
+- No SMS alerts were sent
+- No database records were updated
+
+Possible causes:
+1. Supabase project endpoint has changed or is invalid
+2. Network connectivity issue to AWS endpoint
+3. DNS resolution failure in current environment
+
+Recommendation:
+- Verify current Supabase connection details
+- Check if database credentials are still valid
+- Test connectivity: psql -h db.yrwuxcgvnzrzufcimrxl.aws-1-us-east-1.pooler.supabase.com -U postgres.yrwuxcgvnzrzufcimrxl -d postgres
+
+Action Required: Manual investigation needed before retry.

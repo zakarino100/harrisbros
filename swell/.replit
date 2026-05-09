@@ -1,0 +1,17 @@
+run = "npm run start"
+entrypoint = "server/index.ts"
+hidden = [".config", "package-lock.json"]
+
+[nix]
+channel = "stable-24_05"
+packages = ["nodejs_22", "nodePackages.npm"]
+
+[deployment]
+deploymentTarget = "autoscale"
+build = ["sh", "-c", "npm install && npm run build"]
+run = ["sh", "-c", "node dist/server/index.js"]
+ignorePorts = false
+
+[[ports]]
+localPort = 3000
+externalPort = 80

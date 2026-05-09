@@ -1,0 +1,482 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-24T19:29:01.692Z",
+  "entries": {
+    "memory:memory/2026-04-14.md:1:35": {
+      "key": "memory:memory/2026-04-14.md:1:35",
+      "path": "memory/2026-04-14.md",
+      "startLine": 1,
+      "endLine": 35,
+      "source": "memory",
+      "snippet": "# Memory — 2026-04-14 ## COMMAND: Reviews Module Build Session ### Context Zak asked about pulling Google reviews into the Showroom Auto Styles website automatically. Conversation evolved into building a full reviews module inside the COMMAND Replit project so it handles both social posting AND reviews — all brands centralized. ### Brands (Phase 1) - **Showroom Auto Styles** — priority, test case first - **Healthy Home** - **Wolf Pack Wash** - Fully configurable for future brand additions ### Google Place IDs - Showroom Auto Styles: `ChIJGRJUw_idAiz7GNrODH9G5w` - Healthy Home: `ChIJ32wZemLdTS5oOnW-L0XKLQ` - Wolf Pack Wash: `ChIJhdf-dqM392tXggUTZwxdPw` ### Review Scraping Service - Using",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.6244337555100148,
+      "maxScore": 0.6244337555100148,
+      "firstRecalledAt": "2026-04-19T21:40:24.600Z",
+      "lastRecalledAt": "2026-04-19T21:40:24.600Z",
+      "queryHashes": [
+        "6cb29cfcfdc0"
+      ],
+      "recallDays": [
+        "2026-04-19"
+      ],
+      "conceptTags": [
+        "chijgrjuw-idaiz7gnrodh9g5w",
+        "chij32wzemldts5oonw-l0xklq",
+        "chijhdf-dqm392txggutzwxdpw",
+        "command",
+        "reviews",
+        "module",
+        "context",
+        "zak"
+      ]
+    },
+    "memory:memory/2026-04-19.md:43:78": {
+      "key": "memory:memory/2026-04-19.md:43:78",
+      "path": "memory/2026-04-19.md",
+      "startLine": 43,
+      "endLine": 78,
+      "source": "memory",
+      "snippet": "- Social handles in JSON-LD: facebook.com/wolfpackwashnc, instagram.com/wolfpackwashnc — need to confirm with Zak - Sitemap covers 27 pages, all canonical URLs point to wolfpackwashnc.com ### Deployment Status (as of ~2:28 PM) - Build succeeded (static prerender complete) - Replit Autoscale deployment in progress - Deployment type: Autoscale ($0.004/hr, recommended) - Build command: `pnpm run build` - Run command: `pnpm run start` - Run command field had garbage text — Zak clearing it manually and redeploying - Domain switchover pending after deployment confirms live ### Key Data Points - WPW phone: (919) 738-5394 - WPW email: info@wolfpackwashnc.com - Service area: Raleigh, Cary, Apex, Ho",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.5499529659748077,
+      "maxScore": 0.2964419066905975,
+      "firstRecalledAt": "2026-04-20T23:59:13.952Z",
+      "lastRecalledAt": "2026-04-21T00:24:51.055Z",
+      "queryHashes": [
+        "1be4f261f014",
+        "4f90d89a9a9f"
+      ],
+      "recallDays": [
+        "2026-04-20"
+      ],
+      "conceptTags": [
+        "json-ld",
+        "facebook.com/wolfpackwashnc",
+        "instagram.com/wolfpackwashnc",
+        "wolfpackwashnc.com",
+        "0.004/hr",
+        "738-5394",
+        "social",
+        "handles"
+      ]
+    },
+    "memory:memory/2026-04-05.md:54:80": {
+      "key": "memory:memory/2026-04-05.md:54:80",
+      "path": "memory/2026-04-05.md",
+      "startLine": 54,
+      "endLine": 80,
+      "source": "memory",
+      "snippet": "- Fix: Replit dev DB was conflicting with deployment — agent created a dummy Replit DB to satisfy version check, app switched to SUPABASE_URL secret - Nevaeh added SUPABASE_URL secret, republished successfully ### TradeWell (Zak + Matthew) - Registered jointradewell.com — parked, site to build later - Brand name: TradeWell (Conviction Camp was explored but TradeWell is the go-forward) ## Open items 1. Revoke old GitHub PAT (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) 2. Invite Buff to Finish Line Discord: https://discord.com/oauth2/authorize?client_id=1490182819505377430&permissions=18432&scope=bot 3. Mop Mafia Google Ads — check advertiser verification status 4. Finish Line Facebook ads cre",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.2585387110710144,
+      "maxScore": 0.2585387110710144,
+      "firstRecalledAt": "2026-04-20T23:59:13.952Z",
+      "lastRecalledAt": "2026-04-20T23:59:13.952Z",
+      "queryHashes": [
+        "1be4f261f014"
+      ],
+      "recallDays": [
+        "2026-04-20"
+      ],
+      "conceptTags": [
+        "supabase-url",
+        "jointradewell.com",
+        "go-forward",
+        "discord.com/oauth2/authorize",
+        "client-id",
+        "fix",
+        "replit",
+        "dev"
+      ]
+    },
+    "memory:memory/2026-04-12.md:16:20": {
+      "key": "memory:memory/2026-04-12.md:16:20",
+      "path": "memory/2026-04-12.md",
+      "startLine": 16,
+      "endLine": 20,
+      "source": "memory",
+      "snippet": "- WordPress access for `https://wolfpackwashnc.com/wp-login.php` was successfully diagnosed: credentials for temporary `robin` account were valid, but login was initially blocked by WordPress `confirm_admin_email` flow rather than bad credentials. User updated the account email to `zakarino100@gmail.com` and manually cleared the confirmation gate. - After user confirmed the admin email prompt, WordPress admin access became available. Confirmed stack/components visible from backend: WordPress with Elementor / Elementor Pro, Astra theme, LiteSpeed Cache, Forminator, Autoptimize, WP File Manager, and code/header plugin style additions. - Backend scraping remained partially unreliable because so",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.23070638179779052,
+      "maxScore": 0.23070638179779052,
+      "firstRecalledAt": "2026-04-20T23:59:13.952Z",
+      "lastRecalledAt": "2026-04-20T23:59:13.952Z",
+      "queryHashes": [
+        "1be4f261f014"
+      ],
+      "recallDays": [
+        "2026-04-20"
+      ],
+      "conceptTags": [
+        "wolfpackwashnc.com/wp-login.php",
+        "confirm-admin-email",
+        "gmail.com",
+        "stack/components",
+        "code/header",
+        "wordpress",
+        "access",
+        "https"
+      ]
+    },
+    "memory:memory/2026-04-12.md:13:17": {
+      "key": "memory:memory/2026-04-12.md:13:17",
+      "path": "memory/2026-04-12.md",
+      "startLine": 13,
+      "endLine": 17,
+      "source": "memory",
+      "snippet": "- Facebook/Wolf Pack Wash ads diagnosis using downloaded report `/Users/zak/Downloads/Untitled-report.xlsx`: one dominant winner ad exists (`CUSTOMERRRSspring26`) with almost all spend (~$589 of ~$607). Recommendation: isolate winner into its own scaling campaign and move other creatives into a separate creative testing campaign. Suggested budget split accepted by user: $40/day winner scale campaign and $20/day test campaign. - User said Sonnet cloud platform bill has been paid and requested switching back to Sonnet. Preserve continuity before model switch; current work state should be considered safely saved. - User wants fallback behavior documented: if Sonnet rate-limits again in OpenClaw",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.22435009479522702,
+      "maxScore": 0.22435009479522702,
+      "firstRecalledAt": "2026-04-20T23:59:13.952Z",
+      "lastRecalledAt": "2026-04-20T23:59:13.952Z",
+      "queryHashes": [
+        "1be4f261f014"
+      ],
+      "recallDays": [
+        "2026-04-20"
+      ],
+      "conceptTags": [
+        "facebook/wolf",
+        "40/day",
+        "20/day",
+        "rate-limits",
+        "facebook",
+        "wolf",
+        "pack",
+        "wash"
+      ]
+    },
+    "memory:memory/2026-04-03.md:27:47": {
+      "key": "memory:memory/2026-04-03.md:27:47",
+      "path": "memory/2026-04-03.md",
+      "startLine": 27,
+      "endLine": 47,
+      "source": "memory",
+      "snippet": "- Dashboard \"Mark Complete\" now opens a modal with a date picker - Default = today; change to real service date for backlog entries - Both repos pushed to GitHub ## GitHub Access - Both repos connected to github.com/zakarino100 - healthy-home-backend (public) - wolfpack-d2d (public) - PAT used: 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 — advise Zak to REVOKE this ## Still To Do (next session) 1. Mop Mafia Google Ads — spring peak, funnel ready, build campaign 2. Review automation (Healthy Home) 3. COMMAND testing 4. WPW branding sweep (new logo everywhere) 5. Finish Line Auto Spa / Blue Ocean build 6. Blue Ocean website cleanup 7. Blue Ocean outbound 8. CRM mobile optimization (lower priori",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.32777627706527707,
+      "maxScore": 0.32777627706527707,
+      "firstRecalledAt": "2026-04-21T00:24:51.055Z",
+      "lastRecalledAt": "2026-04-21T00:24:51.055Z",
+      "queryHashes": [
+        "4f90d89a9a9f"
+      ],
+      "recallDays": [
+        "2026-04-20"
+      ],
+      "conceptTags": [
+        "github.com/zakarino100",
+        "healthy-home-backend",
+        "wolfpack-d2d",
+        "dashboard",
+        "mark",
+        "complete",
+        "now",
+        "opens"
+      ]
+    },
+    "memory:memory/2026-03-18.md:1:9": {
+      "key": "memory:memory/2026-03-18.md:1:9",
+      "path": "memory/2026-03-18.md",
+      "startLine": 1,
+      "endLine": 9,
+      "source": "memory",
+      "snippet": "# 2026-03-18 - Zak is actively evaluating the next highest-leverage moves across Wolf Pack Wash and related businesses. - Immediate Wolf Pack Wash priorities discussed: reduce dependence on the current servicer by recruiting backup servicers, launch/finish review collection automation, run a careful reactivation campaign to prior customers, and test narrow paid ads after fulfillment/reputation are more stable. - Zak is concerned that the current servicer is too slow for nearby ~2,000 sqft homes and does not want the business to be overly dependent on one operator. - Zak wants Wolf Pack Wash to generate at least 3 sales/day from ads eventually while continuing door-to-door sales as the immed",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1.1080426543951032,
+      "maxScore": 0.4678258568048477,
+      "firstRecalledAt": "2026-04-21T00:24:51.055Z",
+      "lastRecalledAt": "2026-04-24T19:29:01.692Z",
+      "queryHashes": [
+        "4f90d89a9a9f",
+        "81192a66d055",
+        "43b0dcc133ca"
+      ],
+      "recallDays": [
+        "2026-04-20",
+        "2026-04-24"
+      ],
+      "conceptTags": [
+        "backup",
+        "highest-leverage",
+        "launch/finish",
+        "fulfillment/reputation",
+        "sales/day",
+        "door-to-door",
+        "zak",
+        "actively"
+      ]
+    },
+    "memory:memory/2026-04-19.md:69:107": {
+      "key": "memory:memory/2026-04-19.md:69:107",
+      "path": "memory/2026-04-19.md",
+      "startLine": 69,
+      "endLine": 107,
+      "source": "memory",
+      "snippet": "## Healthy Home / Wolf Pack Wash follow-up session (late afternoon) ### What was completed before this session - Built/pushed HH backend foundations for: - unified lead activity timeline - campaigns backend - Resend email service - VAPI branding/business-hours handling for WPW - Discord Scout lead-thread posting - lead scoring - DNC suppression - Built/pushed D2D admin Notifications tab for inbound lead activity. - Began major next-phase work for: - Google Calendar sync for jobs - Campaign Manager UI in HH dashboard - AI lead nurturing ### Current product direction decided with Zak - For every inbound lead, we want to capture and persist: - service address - service",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.9406010299921035,
+      "maxScore": 0.3616456478834152,
+      "firstRecalledAt": "2026-04-21T00:24:51.055Z",
+      "lastRecalledAt": "2026-04-24T19:29:01.692Z",
+      "queryHashes": [
+        "4f90d89a9a9f",
+        "81192a66d055",
+        "43b0dcc133ca"
+      ],
+      "recallDays": [
+        "2026-04-20",
+        "2026-04-24"
+      ],
+      "conceptTags": [
+        "follow-up",
+        "built/pushed",
+        "branding/business-hours",
+        "lead-thread",
+        "next-phase",
+        "healthy",
+        "home",
+        "wolf"
+      ]
+    },
+    "memory:memory/2026-04-04.md:57:68": {
+      "key": "memory:memory/2026-04-04.md:57:68",
+      "path": "memory/2026-04-04.md",
+      "startLine": 57,
+      "endLine": 68,
+      "source": "memory",
+      "snippet": "- All committed to github.com/zakarino100/FinishLine-auto-spa ## Still To Do 1. Revoke old GitHub PAT (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) 2. Invite Buff to Discord server: https://discord.com/oauth2/authorize?client_id=1490182819505377430&permissions=18432&scope=bot 3. Add BACKEND_PUBLIC_URL secret to Healthy Home Replit 4. Mop Mafia Google Ads verification — check if cleared 5. Finish Line ads creative + Facebook campaign 6. COMMAND testing 7. WPW branding sweep 8. Blue Ocean website + outbound",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.258494234085083,
+      "maxScore": 0.258494234085083,
+      "firstRecalledAt": "2026-04-21T00:24:51.055Z",
+      "lastRecalledAt": "2026-04-21T00:24:51.055Z",
+      "queryHashes": [
+        "4f90d89a9a9f"
+      ],
+      "recallDays": [
+        "2026-04-20"
+      ],
+      "conceptTags": [
+        "discord.com/oauth2/authorize",
+        "client-id",
+        "backend-public-url",
+        "all",
+        "committed",
+        "github.com",
+        "zakarino100",
+        "finishline"
+      ]
+    },
+    "memory:memory/2026-03-16.md:1:12": {
+      "key": "memory:memory/2026-03-16.md:1:12",
+      "path": "memory/2026-03-16.md",
+      "startLine": 1,
+      "endLine": 12,
+      "source": "memory",
+      "snippet": "# 2026-03-16 - Healthy Home is currently landing around the target of $1,200 sold/day. - Bad weather / tornado watch paused service and field sales for today; sales and service expected to resume tomorrow. - Healthy Home backend has a rough copy ready. - Canvassing app is working and has been tested in the field for the last couple of days. - Review system is not implemented yet and is now on today's agenda. - Admin login in the canvassing app can configure routes; route configuration needs confirmed bidirectional sync with backend so changes publish both ways. - Backend visibility is confirmed. - Connection to backend should be established, but needs validation. - Daily stats reporting may",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.24117729067802426,
+      "maxScore": 0.24117729067802426,
+      "firstRecalledAt": "2026-04-21T00:24:51.055Z",
+      "lastRecalledAt": "2026-04-21T00:24:51.055Z",
+      "queryHashes": [
+        "4f90d89a9a9f"
+      ],
+      "recallDays": [
+        "2026-04-20"
+      ],
+      "conceptTags": [
+        "sold/day",
+        "healthy",
+        "home",
+        "currently",
+        "landing",
+        "around",
+        "the",
+        "target"
+      ]
+    },
+    "memory:memory/2026-04-04.md:21:43": {
+      "key": "memory:memory/2026-04-04.md:21:43",
+      "path": "memory/2026-04-04.md",
+      "startLine": 21,
+      "endLine": 43,
+      "source": "memory",
+      "snippet": "- Generated 17 ad images (before/afters, rep in black shirt, lifestyle, exterior) → Desktop/CONTENT/Mop Mafia/GAD Images/ - Google tag AW-18064506391 installed in Mop-Mafia-LP index.html - Conversion event added to quote-tool.tsx onSuccess handler - Both changes committed to github.com/zakarino100/Mop-Mafia-LP ## Healthy Home Review Automation - Built full review automation system in healthy-home-backend - Auto-send toggle (on/off from dashboard) — respects toggle in job completion flow - Manual batch trigger by date range — queues review requests for past jobs - Inbound SMS review reply detection — fires before Mia AI sees it - 5★ → tracked redirect link → Google review (we know when they",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.41291732788085933,
+      "maxScore": 0.41291732788085933,
+      "firstRecalledAt": "2026-04-21T00:31:22.332Z",
+      "lastRecalledAt": "2026-04-21T00:31:22.332Z",
+      "queryHashes": [
+        "81192a66d055"
+      ],
+      "recallDays": [
+        "2026-04-20"
+      ],
+      "conceptTags": [
+        "before/afters",
+        "desktop/content/mop",
+        "mafia/gad",
+        "aw-18064506391",
+        "mop-mafia-lp",
+        "index.html",
+        "quote-tool.tsx",
+        "healthy-home-backend"
+      ]
+    },
+    "memory:memory/2026-03-28.md:1:22": {
+      "key": "memory:memory/2026-03-28.md:1:22",
+      "path": "memory/2026-03-28.md",
+      "startLine": 1,
+      "endLine": 22,
+      "source": "memory",
+      "snippet": "# 2026-03-28 ## Wolf Pack Wash - FB ads budget increased to $40/day (was ~$25/day test budget) ## Mop Mafia - Helping Zak's mom launch Mop Mafia Cleaning LLC in Wendell/Raleigh, NC - Existing landing page: https://book.mop-mafia.com (React/Vite SPA on Replit, Supabase backend) - Existing funnel: package select → get quote → residential/commercial → sq footage → add-ons → contact form → CRM - Strategy: focus on **bi-weekly recurring residential cleans** as the Google Ads offer; spring timing is peak intent window - Built Replit agent prompt to upgrade the funnel: - Add frequency selector step (Step 1, bi-weekly pre-selected with Rate Lock badge) - Add live price calculation step shown B",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.684555846452713,
+      "maxScore": 0.3951760172843933,
+      "firstRecalledAt": "2026-04-21T00:31:22.332Z",
+      "lastRecalledAt": "2026-04-24T19:29:01.692Z",
+      "queryHashes": [
+        "81192a66d055",
+        "43b0dcc133ca"
+      ],
+      "recallDays": [
+        "2026-04-20",
+        "2026-04-24"
+      ],
+      "conceptTags": [
+        "40/day",
+        "25/day",
+        "wendell/raleigh",
+        "book.mop-mafia.com",
+        "react/vite",
+        "residential/commercial",
+        "add-ons",
+        "bi-weekly"
+      ]
+    },
+    "memory:memory/2026-03-18.md:8:13": {
+      "key": "memory:memory/2026-03-18.md:8:13",
+      "path": "memory/2026-03-18.md",
+      "startLine": 8,
+      "endLine": 13,
+      "source": "memory",
+      "snippet": "- Zak also wants to do Facebook outreach for marketing/websites/AI-agent services for home service businesses and mentioned Showroom Auto Styles as a current recurring marketing client at $350/month. - Zak has prior Wolf Pack Wash customers suitable for email/SMS reactivation, but there was a serious historical double-billing issue that caused refunds/disputes and at least one damaging Yelp review; future outreach should be segmented and handled carefully. - Zak asked about a Stripe tax form showing about $101,000 gross volume and is worried about tax exposure and near-term cash flow; guidance centered on not ignoring tax filing/payment issues, understanding that tax is based more on net pro",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.6645678013563155,
+      "maxScore": 0.3694351702928543,
+      "firstRecalledAt": "2026-04-21T00:31:22.332Z",
+      "lastRecalledAt": "2026-04-24T19:29:01.692Z",
+      "queryHashes": [
+        "81192a66d055",
+        "43b0dcc133ca"
+      ],
+      "recallDays": [
+        "2026-04-20",
+        "2026-04-24"
+      ],
+      "conceptTags": [
+        "marketing/websites/ai-agent",
+        "350/month",
+        "email/sms",
+        "double-billing",
+        "refunds/disputes",
+        "near-term",
+        "filing/payment",
+        "zak"
+      ]
+    },
+    "memory:memory/2026-04-19.md:103:127": {
+      "key": "memory:memory/2026-04-19.md:103:127",
+      "path": "memory/2026-04-19.md",
+      "startLine": 103,
+      "endLine": 127,
+      "source": "memory",
+      "snippet": "- use agent name like Robin or Scout - Core sequence: 1. \"Hey [Name], this is [Agent] with Wolf Pack Wash ... Has it been more or less than a year since it was last done?\" 2. regardless of answer, ask for exact service address so we can get exact price 3. once address is received, quote using route-based phrasing: - \"I have a route going out to [city] next week / in the next week or two...\" - then give the house-wash quote and mention inclusions: trim, siding, windows/screens, soffit/eaves 4. if they ask about add-ons, usually quote separately or bundle case-by-case 5. hand off to human when they are ready to book / need exact handling - Important: AI responses must hav",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.2908505320549011,
+      "maxScore": 0.2908505320549011,
+      "firstRecalledAt": "2026-04-24T19:29:01.692Z",
+      "lastRecalledAt": "2026-04-24T19:29:01.692Z",
+      "queryHashes": [
+        "43b0dcc133ca"
+      ],
+      "recallDays": [
+        "2026-04-24"
+      ],
+      "conceptTags": [
+        "route-based",
+        "house-wash",
+        "windows/screens",
+        "soffit/eaves",
+        "add-ons",
+        "case-by-case",
+        "use",
+        "name"
+      ]
+    },
+    "memory:memory/2026-04-12.md:6:11": {
+      "key": "memory:memory/2026-04-12.md:6:11",
+      "path": "memory/2026-04-12.md",
+      "startLine": 6,
+      "endLine": 11,
+      "source": "memory",
+      "snippet": "- Wolf Pack Wash rebuild blueprint doc saved at `/Users/zak/.openclaw/workspace/wolfpackwash/docs/rebuild-blueprint.md`. Includes SEO migration, sitemap, nav, recurring plan, blog architecture, integrations, and implementation phases. - Exterior recurring offer direction chosen: `Exterior Care Plan` with 3 tiers (lower, middle, upper) designed with strong perceived value separation. Pricing intentionally not finalized yet. - User explicitly wants WPW site to be mobile-optimized first, with desktop still looking strong. - Hero video source identified from live WPW homepage snippet: `https://wolfpackwashnc.com/wp-content/uploads/2025/05/Scene-4-Crew-at-Work-Shot-5.mp4`. - Correct Wolf Pack Was",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.26021264791488646,
+      "maxScore": 0.26021264791488646,
+      "firstRecalledAt": "2026-04-24T19:29:01.692Z",
+      "lastRecalledAt": "2026-04-24T19:29:01.692Z",
+      "queryHashes": [
+        "43b0dcc133ca"
+      ],
+      "recallDays": [
+        "2026-04-24"
+      ],
+      "conceptTags": [
+        "users/zak",
+        "mobile-optimized",
+        "wolf",
+        "pack",
+        "wash",
+        "rebuild",
+        "blueprint",
+        "doc"
+      ]
+    }
+  }
+}

@@ -217,4 +217,52 @@ router.delete("/api/schedule/crews/:id", async (req: Request, res: Response) => 
   res.json({ ok: true });
 });
 
+// POST /api/schedule/appointments/:id/sms-confirm
+router.post("/api/schedule/appointments/:id/sms-confirm", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const tenant = req.tenant!;
+  
+  // Get appointment + lead
+  const rows = await sql`
+    SELECT a.*, l.phone, l.full_name
+    FROM swell_appointments a
+    JOIN swell_leads l ON l.id = a.lead_id
+    WHERE a.id = ${id} AND a.tenant_id = ${tenant.id}
+    LIMIT 1
+  `;
+  if (!rows.length) return res.status(404).json({ error: "Not found" });
+  const appt = rows[0] as any;
+  if (!appt.phone) return res.status(400).json({ error: "No phone number" });
+
+  // Build the time window string
+  let timeWindow = "during the day";
+  if (appt.scheduled_time) {
+    const [h, m] = appt.scheduled_time.split(":").map(Number);
+    const endH = h + 1;
+    const fmt = (hh: number, mm: number) => {
+      const ampm = hh >= 12 ? "PM" : "AM";
+      const h12 = hh % 12 || 12;
+      return mm === 0 ? `${h12} ${ampm}` : `${h12}:${String(mm).padStart(2,"0")} ${ampm}`;
+    };
+    timeWindow = `around ${fmt(h, m)}–${fmt(endH, m)}`;
+  }
+
+  // Format day (e.g. "Saturday, May 9")
+  const dateObj = new Date(appt.scheduled_date + "T12:00:00");
+  const dayStr = dateObj.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const firstName = (appt.full_name ?? "there").split(" ")[0];
+  const bizName = tenant.name ?? "us";
+
+  const body = `Hey ${firstName}, this is Hayden with ${bizName}! Just a heads up — we'll be there ${dayStr} ${timeWindow}. If you could please have any vehicles moved out of the driveway beforehand, that'd be great. See you then! 🙌`;
+
+  // Send via Twilio
+  const { sendSms } = await import("../services/twilio.js");
+  await sendSms(appt.phone, body, tenant.twilio_from);
+
+  // Mark appointment as sms_sent in notes
+  await sql`UPDATE swell_appointments SET notes = COALESCE(notes || ' ', '') || '[scheduling SMS sent]' WHERE id = ${id}`;
+
+  res.json({ ok: true, message: body });
+});
+
 export default router;

@@ -125,13 +125,21 @@ function buildSystemPrompt(opts: {
     ? `\n\n⚠️ PRICING NOT YET CONFIGURED FOR THIS TENANT. Do not give any specific price. If the customer asks for a price, say you'll have a teammate follow up shortly with the exact number, and request a handoff.`
     : "";
 
-  return `You are Hayden, a sales SDR for ${businessName}. You communicate via SMS only.
+  const personaName = cfg.persona_name || "Hayden";
+
+  // Persona override block — injected when custom_brand_notes is set.
+  // Comes right after WHO YOU ARE so explicit overrides supersede the default flow.
+  const personaOverrideBlock = cfg.custom_brand_notes
+    ? `\n\n# PERSONA & BRAND OVERRIDE\n${cfg.custom_brand_notes}`
+    : "";
+
+  return `You are ${personaName}, a sales representative for ${businessName}. You communicate via SMS only.
 
 # WHO YOU ARE
-- Name: Hayden. Always introduce yourself as Hayden on the very first message.
+- Name: ${personaName}. Always introduce yourself as ${personaName} on the very first message.
 - You are a sales rep for ${businessName}. Never say you are an AI, a bot, or automated.
-- If asked directly whether you're a human or AI, deflect naturally: "I'm Hayden with ${businessName} — what can I help you with?"
-- Be direct, friendly, professional.
+- If asked directly whether you're a human or AI, deflect naturally: "I'm ${personaName} with ${businessName} — what can I help you with?"
+- Be direct, friendly, professional.${personaOverrideBlock}
 
 # VOICE — NON-NEGOTIABLE
 The goal is direct, simple, quick. Every word earns its place or gets cut.
@@ -187,7 +195,7 @@ End your reply with the literal token <<HANDOFF: reason>> if any of these are tr
 - Customer asks specifically for a person, owner, manager
 - Customer has a complaint, damage claim, refund request
 - Customer wants to confirm a specific appointment time/date (humans schedule, you don't)
-- Customer asks something you don't know (don't bullshit — hand off)
+- Customer asks something you don't know, you're unsure about pricing/scope/availability, or anything not explicitly covered in your instructions — respond with "One second, I can get that for you." and end with <<HANDOFF: unsure — needs human>>. NEVER guess or make something up.
 - Confused or contradictory replies after 2 attempts to clarify
 - Customer is upset, hostile, or accusatory
 - Customer indicates they're a vendor / sales pitch / spam
@@ -214,7 +222,7 @@ If the customer commits to the job ("yes book it", "I'll take it", "let's do it"
 - Conversation messages so far: ${conversation.total_messages}
 
 # LEARNED FROM PAST CONVERSATIONS
-${cfg.learned_notes ? `Key insights from successful closes:\n${cfg.learned_notes}\n` : ""}
+${cfg.learned_notes ? `Key insights from past conversations:\n${cfg.learned_notes}\n` : ""}
 
 # OUTPUT RULES
 - Output ONLY the SMS text the customer should receive — no preamble, no quotes, no formatting markers.
@@ -423,13 +431,68 @@ export async function kickoffConversationForNewLead(tenant: Tenant, lead: Lead):
  * Handle an inbound SMS from a customer.
  * Maps the from-phone → lead → conversation, then runs Hayden's reply.
  */
+// ─── MMS image analysis ──────────────────────────────────────────────────────
+// If the body contains [Customer sent N photo(s): url1, url2], fetch and analyze
+// them with Anthropic vision and return a description to enrich the conversation.
+async function analyzeMediaUrls(rawBody: string, tenantId: string): Promise<string> {
+  const match = rawBody.match(/\[Customer sent \d+ photo\(s\): (.+?)\]/);
+  if (!match) return rawBody;
+  const urls = match[1].split(", ").filter(Boolean);
+  const textPart = rawBody.replace(/\[Customer sent.+?\]/, "").trim();
+  try {
+    const { TWILIO_ACCOUNT_SID: acct, TWILIO_AUTH_TOKEN: auth } = process.env;
+    const imageBlocks: any[] = [];
+    for (const url of urls.slice(0, 3)) { // max 3 images
+      try {
+        const resp = await fetch(url, {
+          headers: { Authorization: "Basic " + Buffer.from(`${acct}:${auth}`).toString("base64") },
+        });
+        if (!resp.ok) continue;
+        const buf = await resp.arrayBuffer();
+        const b64 = Buffer.from(buf).toString("base64");
+        const ct = resp.headers.get("content-type") ?? "image/jpeg";
+        imageBlocks.push({ type: "image", source: { type: "base64", media_type: ct, data: b64 } });
+      } catch { continue; }
+    }
+    if (!imageBlocks.length) return rawBody;
+    const visionRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5",
+        max_tokens: 300,
+        system: "You are analyzing customer photos for a pressure washing / exterior cleaning company. Describe what you see in 2-3 sentences: property type, surfaces visible (siding, steps, driveway, deck, etc.), visible dirt/algae/staining, and anything that affects the scope or price of cleaning.",
+        messages: [{ role: "user", content: [
+          ...imageBlocks,
+          { type: "text", text: textPart || "Describe this property for a cleaning quote." },
+        ]}],
+      }),
+    });
+    const visionData = await visionRes.json() as any;
+    const result = { text: visionData?.content?.[0]?.text ?? "" };
+    const desc = result.text.trim();
+    console.log(`[conversation] MMS image analysis: ${desc.slice(0, 100)}`);
+    const enriched = (textPart ? textPart + "\n" : "") + `[Photo analysis: ${desc}]`;
+    return enriched;
+  } catch (e: any) {
+    console.error("[conversation] MMS analysis error:", e?.message);
+    return rawBody;
+  }
+}
+
 export async function handleInboundSms(opts: {
   tenant: Tenant;
   lead: Lead;
   body: string;
   twilioSid?: string | null;
 }): Promise<RunResult> {
-  const { tenant, lead, body, twilioSid } = opts;
+  const { tenant, lead, twilioSid } = opts;
+  // Analyze any MMS photo attachments before logging/responding
+  const body = await analyzeMediaUrls(opts.body, tenant.id);
   const cfg = await getAIConfig(tenant.id);
   if (!cfg || cfg.enabled !== true) {
     return { ok: false, reason: "AI disabled" };
