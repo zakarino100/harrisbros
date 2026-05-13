@@ -39,7 +39,7 @@ import {
 } from "../db/queries.js";
 import { anthropicChat, type AnthropicMessage } from "./anthropic.js";
 import { sendSms } from "./twilio.js";
-import { notifyNewLeadDiscord, mirrorSmsToThread, notifyHandoffDiscord, notifyBookingDiscord } from "./discord.js";
+import { notifyNewLeadDiscord, mirrorSmsToThread, notifyHandoffDiscord, notifyBookingDiscord, dmZak } from "./discord.js";
 import { getSlotPromptBlock } from "./scheduling.js";
 import { capiQuoted, capiReadyToBook } from "./meta-capi.js";
 import { extractAndSyncLeadData } from "./lead-extractor.js";
@@ -99,6 +99,17 @@ function buildSystemPrompt(opts: {
     const check = checkServiceArea((lead as any).address_lat, (lead as any).address_lon, hubs);
     if (check.inArea) {
       serviceAreaNote = `\n- ✅ Service area: YES — ${check.distanceMiles} miles from ${check.nearestHub} (within coverage)`;
+    } else if (check.distanceMiles <= 10) {
+      // Within 10 miles — escalate to owner instead of auto-disqualifying
+      serviceAreaNote = `\n- ⚠️ Service area: BORDERLINE — ${check.distanceMiles} miles from ${check.nearestHub} (just outside normal coverage). HOLD — do NOT disqualify yet. Tell them: "Let me check with the team on your area — I'll have an answer for you within the hour." Then output <<HANDOFF: borderline_service_area — ${check.distanceMiles} miles from ${check.nearestHub}, owner approval needed>>`;
+      // Fire async Discord notification to owner
+      notifyOwnerBorderlineArea({
+        tenantId:   tenant.id,
+        tenantName: (tenant as any).name ?? tenant.id,
+        lead,
+        distanceMiles: check.distanceMiles,
+        nearestHub:    check.nearestHub,
+      }).catch((e: any) => console.error("[borderline-area]", e?.message));
     } else {
       serviceAreaNote = `\n- ❌ Service area: OUT OF RANGE — ${check.distanceMiles} miles from nearest hub (${check.nearestHub}). DISQUALIFY politely. Tell them you don\'t service this area but thank them for reaching out.`;
     }
@@ -126,6 +137,72 @@ function buildSystemPrompt(opts: {
     : "";
 
   const personaName = cfg.persona_name || "Hayden";
+
+  // ─── RECEPTIONIST MODE: completely different prompt, no quoting/pricing ────
+  if ((cfg as any).mode === "receptionist") {
+    const fullAddress = [lead.address, lead.city, lead.state, lead.zip].filter(Boolean).join(", ") || "(unknown — ask for it)";
+    const leadName = lead.full_name || "there";
+    return `You are ${personaName}, an intake coordinator for ${businessName}. You communicate via SMS only.
+
+# WHO YOU ARE
+- Name: ${personaName}. Introduce yourself on the very first message.
+- You are the intake desk, NOT a closer. Your ONLY job: collect info, hand off to a human rep for the quote.
+- Never say you're an AI or bot. If asked directly, deflect: "I'm ${personaName} with ${businessName} — let me get you taken care of."
+
+# VOICE
+- Friendly, warm, professional. One question at a time. Never stack multiple questions in one message.
+- Short messages. No fluff, no filler phrases like "just checking in" or "hope you're doing well".
+- Never use dashes (— or --). Use a comma or start a new sentence instead.
+
+# YOUR FLOW (follow this order, adapt naturally)
+1. GREET: "Hi${leadName !== "there" ? ` ${leadName}` : ""}! This is ${personaName} with ${businessName}. Thanks for reaching out — we'd love to help. What service are you looking for?"
+2. SERVICE TYPE: Confirm what they need (house wash, driveway, concrete cleaning, bundle, etc.)
+3. ADDRESS: "What's the full service address?"
+4. LAST SERVICE: "About when was it last done?" (helps assess current condition)
+5. PROPERTY DETAILS: One quick clarifying question based on service (e.g., "Roughly how large is the home?" or "Is it a standard 2-car driveway?")
+6. SPECIAL REQUESTS: "Any special concerns or things we should know?"
+7. WRAP UP: Once you have all of the above, send this exact closing: "Perfect — I have everything I need. Someone from the team will reach out shortly with your exact estimate." Then output: <<HANDOFF: info_complete>>
+
+# WHAT YOU NEVER DO
+- NEVER give a price, estimate, or dollar amount of any kind
+- NEVER mention discounts, promos, or "deals"
+- NEVER make or imply a specific appointment time
+- NEVER say "I'll email you" — SMS only
+- NEVER ask "Are you ready to book?" or "Would you like to schedule?" — that's the rep's job
+
+# IF THEY ASK FOR PRICE
+Say: "Prices vary based on the specifics — I want to make sure you get an exact quote for your property. Someone will reach out with that shortly."
+
+# HANDOFF TRIGGERS (output <<HANDOFF: reason>> and nothing more after your reply)
+- You've collected all 5 info points above → <<HANDOFF: info_complete>>
+- Customer asks for owner, manager, or a specific person → <<HANDOFF: customer_requests_human>>
+- Customer has a complaint or issue → <<HANDOFF: complaint>>
+- Anything outside your intake scope (pricing, scheduling, complaints) → <<HANDOFF: outside_scope>>
+
+# STOP / OPT-OUT
+If customer texts STOP, UNSUBSCRIBE, or similar: DO NOT REPLY. End with <<STOP>> only.
+
+# WHAT YOU KNOW ABOUT THIS LEAD
+- Name: ${lead.full_name || "(unknown)"}
+- Phone: ${lead.phone || "(unknown)"}
+- Address: ${fullAddress}
+- Lead arrived: ${lead.created_at}
+- Messages so far: ${conversation.total_messages}
+
+# OUTPUT RULES
+- Output ONLY the SMS text the customer receives. No preamble, no quotes, no formatting.
+- Append exactly ONE control token at the very end if applicable (<<HANDOFF: ...>> or <<STOP>>). Otherwise no token.
+- Keep replies under 320 characters (2 SMS segments).
+- No emoji unless the customer used one first.
+- Never repeat yourself — check history before replying.
+
+Now reply to the customer's most recent message, or send the opening greeting if no prior messages exist.
+
+CRITICAL: Never output meta-commentary, instructions, or notes about the conversation. Never say things like "I need to clarify" or "I should only respond when". You are Hayden — always stay in character and respond directly to the customer.`;
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
+
 
   // Persona override block — injected when custom_brand_notes is set.
   // Comes right after WHO YOU ARE so explicit overrides supersede the default flow.
@@ -493,6 +570,12 @@ export async function handleInboundSms(opts: {
   const { tenant, lead, twilioSid } = opts;
   // Analyze any MMS photo attachments before logging/responding
   const body = await analyzeMediaUrls(opts.body, tenant.id);
+
+  // ─── Owner detection: if the inbound number is the tenant’s contact phone, route to owner mode ───
+  if (tenant.contact_phone && lead.phone === tenant.contact_phone) {
+    return handleOwnerSms({ tenant, body, twilioSid: twilioSid ?? null });
+  }
+
   const cfg = await getAIConfig(tenant.id);
   if (!cfg || cfg.enabled !== true) {
     return { ok: false, reason: "AI disabled" };
@@ -825,6 +908,16 @@ async function runAssistantTurn(
         await mirrorSmsToThread(tid, "assistant", `🚨 **HANDOFF — Human needed**\nReason: ${parsed.controls.handoff}\n\n@here A rep can now reply in this thread to respond via SMS.`).catch(() => {});
       }
     }
+    // DM Zak if Hayden is uncertain / needs guidance
+    const handoffNote = parsed.controls.handoff ?? "";
+    const needsZakDm = /uncertain|not sure|unclear|unusual|edge case|borderline|confused|can't|cannot|don.t know/i.test(handoffNote);
+    if (needsZakDm) {
+      dmZak(
+        `Hayden is uncertain on a ${(tenant as any).name ?? tenant.id} lead.\n` +
+        `Lead: ${lead.full_name ?? lead.phone} (${lead.phone ?? ""})\n` +
+        `Reason: ${handoffNote}`
+      ).catch(() => {});
+    }
   } else if (parsed.controls.win) {
     newStatus = "handoff";
     handoffReason = `win:${parsed.controls.win}`;
@@ -1081,7 +1174,156 @@ export async function fireNurtureJob(opts: {
   return runAssistantTurn(tenant, lead, conversation, cfg, null, null);
 }
 
+// ─── Owner SMS handler ─────────────────────────────────────────────────────────────────────────
+// Routes inbound SMS from the tenant’s own contact_phone to an owner assistant mode.
+// Mack can ask about leads, reply rates, recent activity — but NOT internal Blue Ocean
+// business info, Zak’s details, margins, or other clients.
+
+const OWNER_DAILY_MSG_LIMIT = 20;
+const OWNER_SYSTEM = `You are Hayden, a business assistant for the owner of a pressure washing company.
+You have access to their lead pipeline and can give performance summaries and status updates.
+
+You CAN share:
+- How many leads came in (today / this week / total)
+- Status of individual leads by name or phone
+- Reply rates, conversion rates, recent activity
+- Advice on following up with specific customers
+
+You CANNOT share:
+- Anything about the AI platform, vendor, or software costs
+- Any other client businesses or comparison data
+- Internal pricing strategy or margin decisions
+- Details about the team managing this system
+
+Be concise and direct. This is SMS — keep replies under 160 characters when possible.
+If asked something outside your scope, politely deflect: "That’s outside what I can help with — best to check with your ops team."`;
+
+export async function handleOwnerSmsFromRoute(tenant: Tenant, ownerLead: Lead, body: string): Promise<RunResult> {
+  return handleOwnerSms({ tenant, body, twilioSid: null });
+}
+
+async function handleOwnerSms(opts: {
+  tenant: Tenant;
+  body: string;
+  twilioSid: string | null;
+}): Promise<RunResult> {
+  const { tenant, body } = opts;
+
+  // Rate limit
+  const [countRow] = await sql<{ cnt: string }[]>`
+    SELECT COUNT(*) as cnt FROM swell_lead_activity
+    WHERE tenant_id = ${tenant.id}
+      AND type = 'owner_sms'
+      AND created_at > NOW() - INTERVAL '24 hours'
+  `;
+  const todayCount = parseInt(countRow?.cnt ?? "0", 10);
+  if (todayCount >= OWNER_DAILY_MSG_LIMIT) {
+    const reply = "Daily message limit reached. Chat resumes tomorrow.";
+    if (tenant.twilio_from && tenant.contact_phone) {
+      await sendSms(tenant.contact_phone, reply, tenant.twilio_from).catch(() => {});
+    }
+    return { ok: false, reason: "owner_rate_limited" };
+  }
+
+  // Log the owner message for learning
+  await logActivity({
+    lead_id: 0,
+    tenant_id: tenant.id,
+    type: "owner_sms",
+    direction: "inbound",
+    body: `Owner: "${body}"`,
+    metadata: { from: tenant.contact_phone, message_count_today: todayCount + 1 },
+  }).catch(() => {});
+
+  // Pull quick stats for context
+  const [stats] = await sql<{ total: string; new_today: string; replied: string }[]>`
+    SELECT
+      COUNT(*) as total,
+      COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') as new_today,
+      COUNT(*) FILTER (WHERE status = 'replied') as replied
+    FROM swell_leads WHERE tenant_id = ${tenant.id}
+  `;
+
+  // Build Anthropic prompt with context
+  const apiKey = process.env.ANTHROPIC_API_KEY
+    ?? process.env[`${tenant.id.toUpperCase()}_ANTHROPIC_API_KEY`]
+    ?? "";
+  if (!apiKey) {
+    const reply = "I'm not able to help with that right now. Try again later.";
+    if (tenant.twilio_from && tenant.contact_phone) {
+      await sendSms(tenant.contact_phone, reply, tenant.twilio_from).catch(() => {});
+    }
+    return { ok: false, reason: "no_api_key" };
+  }
+
+  const context = `Current pipeline stats for ${(tenant as any).name ?? tenant.id}:
+- Total leads: ${stats?.total ?? "?"}
+- New leads today: ${stats?.new_today ?? "?"}
+- Leads that replied: ${stats?.replied ?? "?"}`;
+
+  const resp = await anthropicChat({
+    model:     "claude-haiku-4-5",
+    maxTokens: 200,
+    system:    `${OWNER_SYSTEM}\n\n${context}`,
+    messages:  [{ role: "user", content: body }],
+    tenantId:  tenant.id,
+  }).catch((e: any) => { console.error("[owner-sms] Anthropic error:", e?.message); return null; });
+
+  const replyStr = resp?.text ?? "Something went wrong. Try again.";
+
+  // Send reply
+  if (tenant.twilio_from && tenant.contact_phone) {
+    await sendSms(tenant.contact_phone, replyStr, tenant.twilio_from).catch(() => {});
+  }
+
+  // Log the owner interaction to Discord leads channel
+  const discordCh = process.env[`${tenant.id.toUpperCase()}_DISCORD_LEADS_CHANNEL_ID`] ?? "";
+  const discordToken = process.env.DISCORD_BOT_TOKEN ?? "";
+  if (discordCh && discordToken) {
+    const note = `🔑 **Owner SMS** — ${(tenant as any).name ?? tenant.id}\n📱 Mack: "${body}"\n🤖 Hayden: "${replyStr}"`;
+    await fetch(`https://discord.com/api/v10/channels/${discordCh}/messages`, {
+      method:  "POST",
+      headers: { Authorization: `Bot ${discordToken}`, "Content-Type": "application/json" },
+      body:    JSON.stringify({ content: note }),
+    }).catch(() => {});
+  }
+
+  return { ok: true };
+}
+
 // Lookup helper used by webhook + cron
 export async function loadLeadForTenant(tenantId: string, leadId: number): Promise<Lead | undefined> {
   return getLeadByIdForTenant(tenantId, leadId);
+}
+
+// ─── Borderline service area — notify owner via Discord ───────────────────────────────────
+
+async function notifyOwnerBorderlineArea(opts: {
+  tenantId:      string;
+  tenantName:    string;
+  lead:          Lead;
+  distanceMiles: number;
+  nearestHub:    string;
+}): Promise<void> {
+  const { tenantId, tenantName, lead, distanceMiles, nearestHub } = opts;
+  const token   = process.env.DISCORD_BOT_TOKEN ?? "";
+  const channel = process.env[`${tenantId.toUpperCase()}_DISCORD_LEADS_CHANNEL_ID`] ?? "";
+  if (!token || !channel) return;
+
+  const ownerNote = `⚠️ **Borderline lead — ${lead.full_name ?? lead.phone}** needs your call.
+📍 ${lead.address ?? "Address unknown"}
+📍 ${distanceMiles} miles from ${nearestHub} (just outside normal coverage)
+📱 ${lead.phone ?? "—"}
+
+Hayden has put the conversation on hold and told them we'd check. **Reply here:**
+✅ \`YES\` — approve this job, I'll continue the quote
+❌ \`NO\` — too far, I'll politely decline
+
+_(Hayden will continue automatically based on your reply)_`;
+
+  await fetch(`https://discord.com/api/v10/channels/${channel}/messages`, {
+    method:  "POST",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body:    JSON.stringify({ content: ownerNote }),
+  }).catch((e: any) => console.error("[borderline-discord]", e?.message));
 }

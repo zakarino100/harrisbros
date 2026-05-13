@@ -228,6 +228,7 @@ export interface AIConfig {
   custom_brand_notes: string | null;
   pricing_locked: boolean;
   learned_notes: string | null;
+  mode: string; // 'closer' (default) | 'receptionist'
   created_at: string;
   updated_at: string;
 }
@@ -405,7 +406,12 @@ export async function insertConversationMessage(
              ${values.cost_cents}, ${values.error})
      RETURNING id
   `;
-  return rows[0].id;
+  const msgId = rows[0].id;
+
+  // Discord mirroring is now handled explicitly by conversation.ts via mirrorSmsToThread()
+  // This avoids double-posting and allows proper sender labeling (Lead vs Customer vs Hayden)
+
+  return msgId;
 }
 
 // ─── Nurture jobs ────────────────────────────────────────────────────────────
