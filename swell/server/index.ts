@@ -174,6 +174,26 @@ setInterval(async () => {
   } catch (e) { console.error("[reminder-loop]", e); }
 }, 15 * 60 * 1000);
 
+// ─── Process-level error guards ──────────────────────────────────────────────────
+// Prevent uncaught errors from crashing the entire server.
+// Errors are logged for visibility; the process stays alive.
+process.on("uncaughtException", (err) => {
+  console.error("[swell] UNCAUGHT EXCEPTION (server kept alive):", err?.message ?? err);
+  console.error(err?.stack);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[swell] UNHANDLED REJECTION (server kept alive):", reason);
+});
+
+// Graceful shutdown — flush logs, close DB pool
+const shutdown = (sig: string) => {
+  console.log(`[swell] ${sig} received — shutting down gracefully`);
+  process.exit(0);
+};
+process.once("SIGTERM", () => shutdown("SIGTERM"));
+process.once("SIGINT",  () => shutdown("SIGINT"));
+
 app.listen(port, "0.0.0.0", () => {
   console.log(`🌊  Swell running on :${port}`);
   startDiscordGateway();

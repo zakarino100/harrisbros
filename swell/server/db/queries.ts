@@ -309,9 +309,10 @@ export async function getOrCreateConversation(
   const existing = await getConversationByLeadId(leadId);
   if (existing) return existing;
   
+  const nurtureVariant = Math.random() < 0.5 ? 'A' : 'B';
   const rows = await sql<Conversation[]>`
-    INSERT INTO swell_conversations (tenant_id, lead_id, status)
-    VALUES (${tenantId}, ${leadId}, 'active')
+    INSERT INTO swell_conversations (tenant_id, lead_id, status, nurture_variant)
+    VALUES (${tenantId}, ${leadId}, 'active', ${nurtureVariant})
     RETURNING *
   `;
   return rows[0];

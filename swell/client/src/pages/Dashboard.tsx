@@ -6,9 +6,11 @@ interface Props {
   me: MePayload;
   onLogout: () => void;
   onStartMessage?: (leadId: number) => void;
+  initialLeadId?: number | null;
+  onInitialLeadConsumed?: () => void;
 }
 
-export function Dashboard({ me, onLogout, onStartMessage }: Props) {
+export function Dashboard({ me, onLogout, onStartMessage, initialLeadId, onInitialLeadConsumed }: Props) {
   const [leads, setLeads] = useState<LeadSummary[] | null>(null);
   const [kpis, setKpis] = useState<KpiPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +39,14 @@ export function Dashboard({ me, onLogout, onStartMessage }: Props) {
     const t = setInterval(refresh, 30_000); // light auto-refresh every 30s
     return () => clearInterval(t);
   }, []);
+
+  // Auto-open lead if navigated from map
+  useEffect(() => {
+    if (initialLeadId) {
+      openLead(initialLeadId);
+      onInitialLeadConsumed?.();
+    }
+  }, [initialLeadId]);
 
   async function openLead(id: number) {
     setActiveId(id);

@@ -22,7 +22,7 @@ import {
   insertLead,
   getAIConfig,
 } from "../db/queries.js";
-import { handleInboundSms } from "../services/conversation.js";
+import { handleInboundSms, handleOwnerSmsFromRoute } from "../services/conversation.js";
 import { logActivity, getOrCreateConversation } from "../db/queries.js";
 import { sql } from "../db/index.js";
 import { notifyNewLeadDiscord } from "../services/discord.js";
@@ -121,6 +121,29 @@ router.post("/api/twilio/inbound", async (req: Request, res: Response) => {
   );
   if (!tenant) {
     console.warn(`[twilio/inbound] no tenant matches To=${toPhone}, ignoring`);
+    return;
+  }
+
+  // ── Owner / Admin detection — intercept before any lead lookup/creation ─────────────
+  // Matches: tenant contact_phone (business owner) OR global SWELL_ADMIN_PHONE (Zak)
+  const adminPhone = process.env.SWELL_ADMIN_PHONE ?? "";
+  const isOwner = !!tenant.contact_phone && normalize(fromPhone) === normalize(tenant.contact_phone);
+  const isAdmin = !!adminPhone && normalize(fromPhone) === normalize(adminPhone);
+  if (isOwner || isAdmin) {
+    const callerLabel = isAdmin ? "Zak (Admin)" : "Owner";
+    console.log(`[twilio/inbound] ${callerLabel} message detected for ${tenant.id} from ${fromPhone}`);
+    const ownerLead = {
+      id: -1, tenant_id: tenant.id,
+      full_name: callerLabel, phone: fromPhone, email: null,
+      address: null, city: null, state: null, zip: null,
+      status: "owner", meta_lead_id: "", meta_page_id: null, meta_form_id: null,
+      meta_campaign_id: null, meta_adset_id: null, meta_ad_id: null,
+      raw_payload: {}, sms_alert_sent: false, sms_alert_sent_at: null, discord_thread_id: null,
+      created_at: new Date().toISOString(),
+    } as any;
+    handleOwnerSmsFromRoute(tenant, ownerLead, text).catch(
+      (e: any) => console.error("[twilio/inbound] owner handler error:", e?.message)
+    );
     return;
   }
 

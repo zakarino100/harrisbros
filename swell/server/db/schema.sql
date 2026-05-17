@@ -448,3 +448,7 @@ CREATE TABLE IF NOT EXISTS swell_ab_variants (
 CREATE INDEX IF NOT EXISTS idx_swell_ab_variants_tenant ON swell_ab_variants(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_swell_ab_variants_lead ON swell_ab_variants(lead_id);
 CREATE INDEX IF NOT EXISTS idx_swell_ab_variants_group ON swell_ab_variants(variant_group, variant);
+
+-- ─── Receptionist Nurture A/B Variant Tracking ─────────────────────────────
+ALTER TABLE swell_conversations ADD COLUMN IF NOT EXISTS nurture_variant TEXT DEFAULT 'A';
+ALTER TABLE swell_nurture_jobs ADD COLUMN IF NOT EXISTS variant TEXT DEFAULT 'A';

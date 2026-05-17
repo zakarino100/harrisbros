@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Healthy Home — Spring Landscaping Quote</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f8fafc; color: #1e293b; }
+
+  .page { max-width: 780px; margin: 0 auto; background: white; min-height: 100vh; }
+
+  /* Header */
+  .header { background: #0f172a; padding: 32px 40px; display: flex; align-items: center; justify-content: space-between; }
+  .logo { display: flex; align-items: center; gap: 14px; }
+  .logo svg { flex-shrink: 0; }
+  .logo-text { color: white; }
+  .logo-text .brand { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+  .logo-text .tagline { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+  .header-right { text-align: right; color: #94a3b8; font-size: 13px; line-height: 1.7; }
+  .header-right strong { color: white; display: block; font-size: 15px; margin-bottom: 4px; }
+
+  /* Hero */
+  .hero { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%); padding: 36px 40px; border-bottom: 3px solid #3dd6c0; }
+  .hero h1 { color: white; font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+  .hero p { color: #94a3b8; font-size: 14px; }
+  .hero .meta { display: flex; gap: 32px; margin-top: 20px; }
+  .hero .meta-item label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; }
+  .hero .meta-item span { display: block; color: white; font-size: 14px; font-weight: 600; margin-top: 3px; }
+
+  /* Packages */
+  .packages { padding: 40px; }
+  .packages h2 { font-size: 18px; font-weight: 700; margin-bottom: 24px; color: #0f172a; }
+
+  .pkg { border: 2px solid #e2e8f0; border-radius: 16px; margin-bottom: 20px; overflow: hidden; transition: box-shadow 0.2s; }
+  .pkg:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+  .pkg.recommended { border-color: #3dd6c0; }
+
+  .pkg-header { padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .pkg.pkg-1 .pkg-header { background: #f8fafc; }
+  .pkg.pkg-2 .pkg-header { background: #0f172a; }
+  .pkg.pkg-3 .pkg-header { background: #1e3a5f; }
+
+  .pkg-badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; padding: 4px 10px; border-radius: 100px; }
+  .pkg-1 .pkg-badge { background: #e2e8f0; color: #475569; }
+  .pkg-2 .pkg-badge { background: #3dd6c0; color: #0f172a; }
+  .pkg-3 .pkg-badge { background: #f59e0b; color: #0f172a; }
+
+  .rec-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #3dd6c0; background: rgba(61,214,192,0.12); padding: 4px 10px; border-radius: 100px; }
+
+  .pkg-name { font-size: 20px; font-weight: 700; margin-top: 6px; }
+  .pkg-1 .pkg-name { color: #0f172a; }
+  .pkg-2 .pkg-name, .pkg-3 .pkg-name { color: white; }
+
+  .pkg-price { font-size: 32px; font-weight: 800; }
+  .pkg-1 .pkg-price { color: #0f172a; }
+  .pkg-2 .pkg-price, .pkg-3 .pkg-price { color: #3dd6c0; }
+
+  .pkg-body { padding: 20px 24px; }
+  .scope-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #334155; }
+  .scope-item:last-child { border-bottom: none; }
+  .scope-item .check { color: #3dd6c0; font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .scope-item .x { color: #cbd5e1; font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .scope-item .detail { color: #64748b; font-size: 12px; margin-top: 2px; }
+
+  /* Summary */
+  .summary { margin: 0 40px 40px; background: #f8fafc; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0; }
+  .summary h3 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b; margin-bottom: 16px; }
+  .line-items { font-size: 14px; }
+  .line-item { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #e2e8f0; color: #334155; }
+  .line-item:last-child { border-bottom: none; }
+  .line-item .note { color: #94a3b8; font-size: 12px; }
+
+  /* Footer */
+  .footer { background: #0f172a; padding: 24px 40px; display: flex; justify-content: space-between; align-items: center; }
+  .footer p { color: #64748b; font-size: 13px; }
+  .footer .contact { color: #3dd6c0; font-size: 14px; font-weight: 600; }
+
+  .validity { margin: 0 40px 24px; font-size: 13px; color: #94a3b8; text-align: center; padding: 12px; background: #fefce8; border: 1px solid #fef08a; border-radius: 8px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">
+      <svg width="44" height="44" viewBox="0 0 100 100" fill="none">
+        <path d="M50 10 L88 42 L88 85 Q88 90 83 90 L62 90 L38 90 L17 90 Q12 90 12 85 L12 42 Z"
+          stroke="white" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+        <rect x="44" y="47" width="12" height="26" rx="4" fill="#3DD6C0"/>
+        <rect x="35" y="54" width="30" height="12" rx="4" fill="#3DD6C0"/>
+      </svg>
+      <div class="logo-text">
+        <div class="brand">Healthy Home</div>
+        <div class="tagline">Lawn &amp; Landscaping Services</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <strong>ESTIMATE</strong>
+      Date: May 14, 2026<br>
+      Valid for 14 days<br>
+      Quote #: HH-2026-0514
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Spring Landscaping Estimate</h1>
+    <p>Full property assessment — mulch, removal, trimming &amp; cleanup</p>
+    <div class="meta">
+      <div class="meta-item">
+        <label>Prepared For</label>
+        <span>Peter Pitillo</span>
+      </div>
+      <div class="meta-item">
+        <label>Property</label>
+        <span>Residential — Full Property</span>
+      </div>
+      <div class="meta-item">
+        <label>Scope</label>
+        <span>3 Package Options</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Packages -->
+  <div class="packages">
+    <h2>Choose Your Package</h2>
+
+    <!-- Package 1 -->
+    <div class="pkg pkg-1">
+      <div class="pkg-header">
+        <div>
+          <span class="pkg-badge">Essential</span>
+          <div class="pkg-name">Fresh Start</div>
+        </div>
+        <div class="pkg-price">$1,125</div>
+      </div>
+      <div class="pkg-body">
+        <div class="scope-item"><span class="check">✓</span><div><div>Fresh mulch installation — all beds (10 cu yds installed)</div><div class="detail">Includes bed prep, weed treatment &amp; install throughout property</div></div></div>
+        <div class="scope-item"><span class="check">✓</span><div><div>Dead arborvitae removal (6–8 ft)</div><div class="detail">Cut, pull, haul off property</div></div></div>
+        <div class="scope-item"><span class="check">✓</span><div><div>Dead bush removal (medium)</div><div class="detail">Cut, pull, haul off property</div></div></div>
+        <div class="scope-item"><span class="check">✓</span><div><div>Basic debris cleanup &amp; blowout</div></div></div>
+        <div class="scope-item"><span class="x">✗</span><div><div>Shrub trimming away from structure</div></div></div>
+        <div class="scope-item"><span class="x">✗</span><div><div>Hedge rejuvenation &amp; shaping</div></div></div>
+      </div>
+    </div>
+
+    <!-- Package 2 — Recommended -->
+    <div class="pkg pkg-2 recommended">
+      <div class="pkg-header">
+        <div>
+          <span class="pkg-badge">⭐ Most Popular</span>
+          <div class="pkg-name">Healthy Home Standard</div>
+        </div>
+        <div>
+          <span class="rec-tag">Recommended</span>
+          <div class="pkg-price">$1,595</div>
+        </div>
+      </div>
+      <div class="pkg-body">
+        <div class="scope-item"><span class="check">✓</span><div><div>Everything in Fresh Start</div></div></div>
+        <div class="scope-item"><span class="check">✓</span><div><div>Trim nandina away from front porch &amp; column</div><div class="detail">Restores 18"+ clearance — prevents moisture damage</div></div></div>
+        <div class="scope-item"><span class="check">✓</span><div><div>Trim boxwood/holly off stone wall</div><div class="detail">Prevents staining &amp; pest harborage</div></div></div>
+        <div class="scope-item"><span class="check">✓</span><div><div>Trim side foundation shrubs (×2) away from siding</div></div></div>
+        <div class="scope-item"><span class="check">✓</span><div><div>Trim deck area shrubs (×2) away from deck structure</div></div></div>
+        <div class="scope-item"><span class="check">✓</span><div><div>Full debris haul-off included</div></div></div>
+        <div class="scope-item"><span class="x">✗</span><div><div>Full loropetalum hedge rejuvenation</div></div></div>
+      </div>
+    </div>
+
+    <!-- Package 3 -->
+    <div class="pkg pkg-3">
+      <div class="pkg-header">
+        <div>
+          <span class="pkg-badge">🔥 Complete</span>
+          <div class="pkg-name">Full Transformation</div>
+        </div>
+        <div class="pkg-price">$2,100</div>
+      </div>
+      <div class="pkg-body">
+        <div class="scope-item"><span class="check">✓</span><div><div>Everything in Healthy Home Standard</div></div></div>
+        <div class="scope-item"><span class="check">✓</span><div><div>Full loropetalum hedge rejuvenation (~40 linear ft)</div><div class="detail">Hard cutback 40–50%, dead wood removal, reshape entire hedge row</div></div></div>
+        <div class="scope-item"><span class="check">✓</span><div><div>Shape &amp; manicure all remaining shrubs property-wide</div></div></div>
+        <div class="scope-item"><span class="check">✓</span><div><div>Full cleanup &amp; haul-off of all cuttings &amp; debris</div></div></div>
+        <div class="scope-item"><span class="check">✓</span><div><div>Bed re-edging along hedge row (~50–60 linear ft)</div></div></div>
+        <div class="scope-item"><span class="check">✓</span><div><div>Property fully refreshed — curb appeal top to bottom</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Line Items -->
+  <div class="summary">
+    <h3>What's Included — Pricing Breakdown</h3>
+    <div class="line-items">
+      <div class="line-item"><span>Mulch install — 10 cu yds (incl. weeding &amp; treatment)</span><span>$1,100</span></div>
+      <div class="line-item"><span>Dead arborvitae removal (Extra Large, 6–8 ft)</span><span>$175</span></div>
+      <div class="line-item"><span>Dead bush removal (Medium, 3–4 ft)</span><span>$70</span></div>
+      <div class="line-item"><span>Priority trimming — 4 structure clearance areas</span><span>$170</span></div>
+      <div class="line-item"><span>Full hedge rejuvenation — loropetalum row</span><span>$260</span></div>
+      <div class="line-item"><span>Full property shaping + bed edging + haul-off</span><span>$195</span></div>
+    </div>
+  </div>
+
+  <div class="validity">
+    ⏰ This quote is valid for 14 days from the date above. Pricing subject to change after that period.
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p>Healthy Home Lawn &amp; Landscaping · Licensed &amp; Insured</p>
+    <div class="contact">Questions? Call or text anytime.</div>
+  </div>
+
+</div>
+</body>
+</html>

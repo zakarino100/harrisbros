@@ -86,6 +86,7 @@ export interface ConversationView {
   id: number;
   status: string;
   handoffReason: string | null;
+  aiPaused: boolean;
   totalMessages: number;
   totalCostCents: number;
   quotedPriceCents: number | null;

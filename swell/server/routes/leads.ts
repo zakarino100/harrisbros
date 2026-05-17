@@ -109,7 +109,6 @@ router.get("/api/leads/:id", async (req: Request, res: Response) => {
             status: conv.status,
             handoffReason: conv.handoff_reason,
             totalMessages: conv.total_messages,
-            totalCostCents: conv.total_cost_cents,
             quotedPriceCents: conv.quoted_price_cents,
             discountApplied: !!conv.discount_applied,
             messages: messages.map((m) => ({
@@ -118,9 +117,6 @@ router.get("/api/leads/:id", async (req: Request, res: Response) => {
               body: m.body,
               createdAt: m.created_at,
               modelUsed: m.model_used,
-              tokensIn: m.tokens_in,
-              tokensOut: m.tokens_out,
-              costCents: m.cost_cents,
               error: m.error,
             })),
           }
@@ -287,16 +283,12 @@ router.get("/api/conversations/:id/messages", async (req: Request, res: Response
       status: ourConv.status,
       handoffReason: ourConv.handoff_reason,
       totalMessages: ourConv.total_messages,
-      totalCostCents: ourConv.total_cost_cents,
       messages: messages.map((m) => ({
         id: m.id,
         role: m.role,
         body: m.body,
         createdAt: m.created_at,
         modelUsed: m.model_used,
-        tokensIn: m.tokens_in,
-        tokensOut: m.tokens_out,
-        costCents: m.cost_cents,
         error: m.error,
       })),
     });

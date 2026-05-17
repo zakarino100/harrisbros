@@ -70,8 +70,8 @@ export function Login({ me, onAuthed }: Props) {
         <button
           type="submit"
           disabled={submitting || !password}
-          className="btn-gold w-full mt-1"
-          style={{ background: brand }}
+          className="w-full mt-1 py-2.5 rounded-lg font-bold text-black text-sm tracking-wide transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-px active:translate-y-0"
+          style={{ background: '#fbbf24', boxShadow: '0 1px 0 rgba(0,0,0,0.4), 0 8px 24px -8px rgba(251,191,36,0.4)' }}
         >
           {submitting ? "Signing in…" : "Sign in"}
         </button>

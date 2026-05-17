@@ -39,7 +39,8 @@ import {
 } from "../db/queries.js";
 import { anthropicChat, type AnthropicMessage } from "./anthropic.js";
 import { sendSms } from "./twilio.js";
-import { notifyNewLeadDiscord, mirrorSmsToThread, notifyHandoffDiscord, notifyBookingDiscord, dmZak } from "./discord.js";
+import { notifyNewLeadDiscord, mirrorSmsToThread, notifyHandoffDiscord, notifyBookingDiscord, dmZak, postToThread, notifyLeadRepliedWhilePaused } from "./discord.js";
+import { preSendGuard } from "./pre-send-guard.js";
 import { getSlotPromptBlock } from "./scheduling.js";
 import { capiQuoted, capiReadyToBook } from "./meta-capi.js";
 import { extractAndSyncLeadData } from "./lead-extractor.js";
@@ -141,7 +142,28 @@ function buildSystemPrompt(opts: {
   // ─── RECEPTIONIST MODE: completely different prompt, no quoting/pricing ────
   if ((cfg as any).mode === "receptionist") {
     const fullAddress = [lead.address, lead.city, lead.state, lead.zip].filter(Boolean).join(", ") || "(unknown — ask for it)";
-    const leadName = lead.full_name || "there";
+    const leadName = lead.full_name?.split(' ')[0] || "there";
+
+    // Parse known data from FB form field_data in raw_payload
+    const rawPayload = (lead.raw_payload as any) ?? {};
+    const fieldData: Array<{name: string; values: string[]}> = rawPayload.field_data ?? [];
+    const formFields: Record<string, string> = {};
+    for (const f of fieldData) { formFields[f.name] = f.values?.[0] ?? ""; }
+
+    const serviceHint = "house wash"; // always house wash for MackWash ads
+    const knownHomeSize: string = formFields["approximate_home_size?"] || formFields["approximate_home_size"] || formFields["square_footage"] || "";
+    const knownTimeline: string = formFields["when_are_you_looking_to_get_this_done?"] || formFields["timeline"] || "";
+
+    // Format for readability
+    const homeSizeClean = knownHomeSize.replace(/_/g, " ").replace(/–/g, "–");
+    const timelineClean = knownTimeline.replace(/_/g, " ").replace(/\//g, " /");
+
+    // Build context block of what we already know — don't ask for these again
+    const alreadyKnown = [
+      knownHomeSize ? `- Home size: ${homeSizeClean}` : "",
+      knownTimeline ? `- Timeline: ${timelineClean}` : "",
+    ].filter(Boolean).join("\n");
+
     return `You are ${personaName}, an intake coordinator for ${businessName}. You communicate via SMS only.
 
 # WHO YOU ARE
@@ -154,14 +176,17 @@ function buildSystemPrompt(opts: {
 - Short messages. No fluff, no filler phrases like "just checking in" or "hope you're doing well".
 - Never use dashes (— or --). Use a comma or start a new sentence instead.
 
-# YOUR FLOW (follow this order, adapt naturally)
-1. GREET: "Hi${leadName !== "there" ? ` ${leadName}` : ""}! This is ${personaName} with ${businessName}. Thanks for reaching out — we'd love to help. What service are you looking for?"
-2. SERVICE TYPE: Confirm what they need (house wash, driveway, concrete cleaning, bundle, etc.)
-3. ADDRESS: "What's the full service address?"
-4. LAST SERVICE: "About when was it last done?" (helps assess current condition)
-5. PROPERTY DETAILS: One quick clarifying question based on service (e.g., "Roughly how large is the home?" or "Is it a standard 2-car driveway?")
-6. SPECIAL REQUESTS: "Any special concerns or things we should know?"
-7. WRAP UP: Once you have all of the above, send this exact closing: "Perfect — I have everything I need. Someone from the team will reach out shortly with your exact estimate." Then output: <<HANDOFF: info_complete>>
+# WHAT YOU ALREADY KNOW (from their form — do NOT ask again)
+- Service: ${serviceHint}
+${alreadyKnown || "- (no additional form data)"}
+
+# YOUR FLOW — only 2 questions needed, then hand off
+1. GREET: "Hi${leadName !== "there" ? ` ${leadName}` : ""}! This is ${personaName} with MackWash. I saw your inquiry about a house wash${knownTimeline ? ` and you\'re looking to get it done ${timelineClean}` : ""}. Has it been more or less than a year since it was last done?"
+2. LAST SERVICE: Acknowledge their answer briefly ("Got it" or "Perfect"), then ask the one thing you still need:
+3. ADDRESS: "What\'s the service address?"
+4. WRAP UP: Once you have address and last-done date, send exactly: "Perfect — I have everything I need. Someone from the team will reach out shortly with your exact estimate." Then output: <<HANDOFF: info_complete>>
+
+That\'s it — 2 questions max before handoff. Do not ask about home size (already known from form) or timeline (already known). If they volunteer extra info, great, but don\'t fish for it.
 
 # WHAT YOU NEVER DO
 - NEVER give a price, estimate, or dollar amount of any kind
@@ -183,7 +208,7 @@ Say: "Prices vary based on the specifics — I want to make sure you get an exac
 If customer texts STOP, UNSUBSCRIBE, or similar: DO NOT REPLY. End with <<STOP>> only.
 
 # WHAT YOU KNOW ABOUT THIS LEAD
-- Name: ${lead.full_name || "(unknown)"}
+- Name: ${lead.full_name?.split(" ")[0] || "(unknown)"}
 - Phone: ${lead.phone || "(unknown)"}
 - Address: ${fullAddress}
 - Lead arrived: ${lead.created_at}
@@ -290,7 +315,7 @@ If the customer is clearly not a buyer (out of service area, wrong service, joke
 If the customer commits to the job ("yes book it", "I'll take it", "let's do it", a day preference, any verbal yes), send a brief confirmation ("Perfect — you're on the schedule. Someone will call to confirm the time.") and end with <<HANDOFF: ready to book>>. You don't schedule exact times — a human confirms that.
 
 # WHAT YOU KNOW ABOUT THIS LEAD
-- Name: ${lead.full_name || "(unknown)"}
+- Name: ${lead.full_name?.split(" ")[0] || "(unknown)"}
 - Phone: ${lead.phone || "(unknown)"}
 - Email: ${lead.email || "(unknown)"}
 - Address: ${fullAddress}${leadServiceHint}${serviceAreaNote}
@@ -484,8 +509,8 @@ export async function kickoffConversationForNewLead(tenant: Tenant, lead: Lead):
       name: lead.full_name,
       phone: lead.phone,
       email: lead.email,
-      homeSize: (lead.raw_payload as any)?.home_size ?? null,
-      timeline: (lead.raw_payload as any)?.timeline ?? null,
+      homeSize: (() => { const fd: any[] = (lead.raw_payload as any)?.field_data ?? []; const f = fd.find((x: any) => /approximate_home_size/i.test(x.name)); return f?.values?.[0] ?? null; })(),
+      timeline: (() => { const fd: any[] = (lead.raw_payload as any)?.field_data ?? []; const f = fd.find((x: any) => /when_are_you_looking/i.test(x.name)); return f?.values?.[0] ?? null; })(),
     });
     if (discordThreadId) {
       await updateConversation(conversation.id, { discord_thread_id: discordThreadId } as any);
@@ -500,6 +525,59 @@ export async function kickoffConversationForNewLead(tenant: Tenant, lead: Lead):
   if ((lead as any).discord_thread_id && !(conversation as any).discord_thread_id) {
     await updateConversation(conversation.id, { discord_thread_id: (lead as any).discord_thread_id } as any).catch(() => {});
   }
+
+  // ── A/B template opener for receptionist mode ───────────────────────────────
+  // Bypasses the LLM entirely for the first message — saves cost + ensures
+  // exact copy. Variant driven by nurture_variant (assigned 50/50 at creation).
+  if ((cfg as any).mode === 'receptionist') {
+    const variant = ((conversation as any).nurture_variant ?? 'A') as 'A' | 'B';
+    const firstName = lead.full_name?.split(' ')[0] ?? lead.full_name ?? 'there';
+    const openerTemplates: Record<'A' | 'B', string> = {
+      A: `Hi [name]! This is Hayden with Mack Wash. I'm reaching out regarding your house wash inquiry. I know you said you're just looking to get prices for now - I can help with that. Has it been more or less than a year since it was last done?`,
+      B: `Hey [name]! Hayden here with Mack Wash — saw your inquiry about a house wash. Quick question to get you pointed in the right direction: has it been more or less than a year since the last wash?`,
+    };
+    const openerText = openerTemplates[variant].replace(/\[name\]/gi, firstName);
+
+    const guard = preSendGuard({ message: openerText, mode: 'receptionist', isDnc: false });
+    if (!guard.ok) {
+      console.error(`[opener] guard blocked: ${guard.reason}`);
+      return { ok: false, reason: guard.reason };
+    }
+
+    // Natural typing delay before sending
+    const typingMs = Math.max(2000, Math.min(5000, openerText.length * 40 + Math.random() * 1000));
+    await new Promise(resolve => setTimeout(resolve, typingMs));
+
+    try {
+      const sid = await sendSms(lead.phone, openerText, tenant.twilio_from);
+      await insertConversationMessage({
+        conversation_id: conversation.id,
+        tenant_id: tenant.id,
+        role: 'assistant',
+        body: openerText,
+        twilio_sid: (sid as any)?.sid ?? null,
+        model_used: `opener-template-${variant}`,
+        tokens_in: null, tokens_out: null, cost_cents: 0, error: null,
+      });
+      await updateConversation(conversation.id, {
+        last_message_at: new Date().toISOString(),
+        last_role: 'assistant' as const,
+        total_messages: 1,
+      });
+      // Mirror to Discord thread
+      const threadId = (conversation as any).discord_thread_id ?? (lead as any).discord_thread_id ?? null;
+      if (threadId) {
+        await mirrorSmsToThread(threadId, 'assistant', openerText, null, null, true).catch(() => {});
+      }
+      // Schedule all nurture touches upfront
+      await scheduleReceptionistNurture(tenant.id, lead.id, conversation.id);
+      console.log(`[opener] sent ${variant} template to ${lead.phone} (conv ${conversation.id})`);
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, reason: err?.message ?? String(err) };
+    }
+  }
+  // ── end receptionist opener ──────────────────────────────────────────────────
 
   return runAssistantTurn(tenant, lead, conversation, cfg, /*incomingUserMsg*/ null, /*twilioSid*/ null);
 }
@@ -648,7 +726,43 @@ export async function handleInboundSms(opts: {
   // the AI. The inbound message was already logged + mirrored to Discord above
   // so the rep can see it. The rep must "Resume AI" to reactivate Hayden.
   if (fresh.status === "handoff" || fresh.status === "stopped") {
+    // Notify Mack — lead replied while AI is off
+    const threadId = (fresh as any).discord_thread_id ?? null;
+    const ownerDiscordId = (tenant as any).owner_discord_user_id ?? process.env.MACKWASH_OWNER_DISCORD_USER_ID ?? "1327340335675736125";
+    notifyLeadRepliedWhilePaused({
+      tenantId: tenant.id,
+      threadId,
+      leadName: lead.full_name ?? lead.phone ?? "Unknown",
+      message: body,
+      ownerDiscordId,
+    }).catch((e: any) => console.error("[conv] notifyLeadRepliedWhilePaused failed:", e?.message));
     return { ok: false, reason: `ai_paused_${fresh.status}` };
+  }
+
+  // ── Manual AI pause gate (per-lead toggle by rep) ─────────────────────────
+  if ((fresh as any).ai_paused === true) {
+    // Notify Discord: paused lead just replied — rep needs to assess
+    const threadId = (fresh as any).discord_thread_id ?? null;
+    const mackDiscordId = process.env.MACKWASH_OWNER_DISCORD_ID ?? "1327340335675736125";
+    const zakDiscordId = process.env.DISCORD_ZAK_USER_ID ?? "1385472518978011266";
+    const leadsChannelId = process.env[`${tenant.id.toUpperCase()}_DISCORD_LEADS_CHANNEL_ID`] ?? "";
+    const discordToken = process.env.DISCORD_BOT_TOKEN ?? "";
+    const pingMsg = `⚠️ **Paused lead replied** — needs review\n👤 **${lead.full_name || lead.phone}** just texted back: "${body.slice(0, 200)}"\n\n<@${mackDiscordId}> <@${zakDiscordId}> — AI is still paused. Review in CRM and re-enable AI manually when ready.`;
+    if (leadsChannelId && discordToken) {
+      fetch(`https://discord.com/api/v10/channels/${leadsChannelId}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bot ${discordToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ content: pingMsg }),
+      }).catch(() => {});
+    }
+    if (threadId && discordToken) {
+      fetch(`https://discord.com/api/v10/channels/${threadId}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bot ${discordToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ content: `⚠️ **Lead replied while AI is paused.** Re-enable AI in the CRM when ready to respond.` }),
+      }).catch(() => {});
+    }
+    return { ok: false, reason: "ai_manually_paused" };
   }
 
   return runAssistantTurn(tenant, lead, fresh, cfg, body, twilioSid ?? null);
@@ -779,6 +893,39 @@ async function runAssistantTurn(
     await new Promise(resolve => setTimeout(resolve, typingMs));
   }
 
+  // ── Pre-send guard — hard-check before ANY message hits Twilio ──────────────
+  const guard = preSendGuard({
+    message: parsed.cleanText,
+    mode: (cfg as any).mode ?? null,
+    isDnc: lead.phone ? await isOnDNC(tenant.id, lead.phone).catch(() => false) : true,
+  });
+  if (!guard.ok) {
+    console.error(`[guard] BLOCKED outbound to ${lead.phone} (conv ${conversation.id}): ${guard.reason}`);
+    await insertConversationMessage({
+      conversation_id: conversation.id,
+      tenant_id: tenant.id,
+      role: "assistant",
+      body: parsed.cleanText,
+      twilio_sid: null,
+      model_used: modelUsed,
+      tokens_in: tokensIn,
+      tokens_out: tokensOut,
+      cost_cents: costCents,
+      error: `_blocked: ${guard.reason}`,
+    });
+    // Mirror to Discord as internal/blocked so rep can see it
+    const convForGuard = await getOrCreateConversation(tenant.id, lead.id).catch(() => null);
+    if ((convForGuard as any)?.discord_thread_id) {
+      await mirrorSmsToThread(
+        (convForGuard as any).discord_thread_id,
+        "assistant",
+        `🚫 **BLOCKED** *(guard: ${guard.reason})*\n${parsed.cleanText}`,
+        null, null, false
+      ).catch(() => {});
+    }
+    return { ok: false, reason: `blocked by pre-send guard: ${guard.reason}` };
+  }
+
   // Send SMS to lead
   let twilioSid: string | null = null;
   let smsError: string | null = null;
@@ -786,13 +933,18 @@ async function runAssistantTurn(
     try {
       const smsResp = await sendSms(lead.phone, parsed.cleanText, tenant.twilio_from);
       twilioSid = (smsResp as any)?.sid ?? null;
-      // Mirror to Discord thread
+      // Mirror to Discord thread — mark as SENT
       const conv = await getOrCreateConversation(tenant.id, lead.id);
       if ((conv as any).discord_thread_id) {
-        await mirrorSmsToThread((conv as any).discord_thread_id, "assistant", parsed.cleanText).catch(() => {});
+        await mirrorSmsToThread((conv as any).discord_thread_id, "assistant", parsed.cleanText, null, null, twilioSid !== null).catch(() => {});
       }
     } catch (err: any) {
       smsError = String(err?.message ?? err);
+      // Mirror to Discord thread — mark as FAILED so rep can see it never reached customer
+      const conv = await getOrCreateConversation(tenant.id, lead.id).catch(() => null);
+      if ((conv as any)?.discord_thread_id) {
+        await mirrorSmsToThread((conv as any).discord_thread_id, "assistant", parsed.cleanText, null, smsError, false).catch(() => {});
+      }
     }
 
     // ── Delayed quote: if Hayden used <<HOLD>>, send the quote message after 3 minutes ──
@@ -942,7 +1094,12 @@ async function runAssistantTurn(
     });
   } else {
     // Schedule the next nurture if we're still in active flow.
-    await scheduleNextNurture(tenant.id, lead.id, conversation.id, conversation.total_messages + 1);
+    if ((cfg as any).mode === 'receptionist') {
+      // Receptionist mode: schedule all 10 template touches upfront (no LLM calls needed)
+      await scheduleReceptionistNurture(tenant.id, lead.id, conversation.id);
+    } else {
+      await scheduleNextNurture(tenant.id, lead.id, conversation.id, conversation.total_messages + 1);
+    }
   }
 
   // CAPI: fire InitiateCheckout when ready to book, ViewContent when quoted
@@ -1050,6 +1207,65 @@ async function runAssistantTurn(
 // Pattern: after every assistant message that didn't elicit a handoff, queue
 // the next nudge. Cancelled the moment the customer replies.
 
+// ─── Receptionist nurture prompts (A/B variants) ────────────────────────────
+// Warm check-ins only. NO pricing, NO scarcity, NO quotes, NO scheduling.
+// Messages sent directly as SMS templates — no LLM call needed.
+const receptionistNudgeMap: Record<string, { A: string; B: string }> = {
+  touch_30m: {
+    A: "Hey [name], just wanted to make sure my message came through! Still happy to get you some info on a house wash — what's the address we'd be coming out to?",
+    B: "Hi [name]! This is Hayden with Mack Wash — just following up on your inquiry. Want to get you set up — what's the best address for the job?"
+  },
+  touch_2h: {
+    A: "Hey [name], Hayden again with Mack Wash. Want to make sure we didn't miss each other — still looking to get a house wash done?",
+    B: "Hi [name], just checking back in on your house wash inquiry. Happy to answer any questions — still interested?"
+  },
+  touch_6h: {
+    A: "Hey [name] — Hayden with Mack Wash. We do a lot of homes in your area and I want to make sure you get taken care of. Still want to move forward?",
+    B: "[name], Hayden here from Mack Wash. Just making sure this didn't get buried. Still want to get that house wash done?"
+  },
+  touch_24h: {
+    A: "Hey [name], following up from yesterday on your Mack Wash inquiry. We're booking jobs in your area — do you still want to get on the schedule?",
+    B: "Hi [name], Hayden with Mack Wash. Wanted to circle back — are you still looking to get the house washed? Happy to help."
+  },
+  touch_48h: {
+    A: "[name], Hayden from Mack Wash. Just wanted to check one more time — still thinking about getting the house wash done?",
+    B: "Hey [name] — haven't heard back, just want to make sure everything is okay. Still interested in the house wash?"
+  },
+  touch_72h: {
+    A: "Hey [name], Hayden with Mack Wash. Last thing I need is your address so I can pass this off to Mack for you — still want to move forward?",
+    B: "[name], Hayden here. We've got availability in your area soon. Do you still want info on the house wash?"
+  },
+  touch_7d: {
+    A: "Hey [name] — it's been a week since you reached out about a house wash. Still on your radar? Happy to pick back up.",
+    B: "Hi [name], Hayden with Mack Wash. Just wanted to check back in — did you end up getting the house wash taken care of?"
+  },
+  touch_10d: {
+    A: "[name], Hayden from Mack Wash. We're doing jobs near you soon — wanted to reach out one more time in case the timing works better now.",
+    B: "Hey [name] — still thinking about the house wash? We're in your area and I'd love to get you connected with Mack."
+  },
+  touch_14d: {
+    A: "Hi [name], Hayden with Mack Wash. Reaching out one more time — if the timing isn't right, no worries at all. Just let me know!",
+    B: "[name] — Hayden here. Two weeks since you inquired about a house wash. Still want to move forward, or should I take you off my list?"
+  },
+  touch_21d: {
+    A: "Hey [name], last check-in from me — Hayden with Mack Wash. Still want to get that house wash done? Just reply and I'll get Mack in touch with you.",
+    B: "[name], Hayden from Mack Wash. Final follow-up — if the timing works, just reply and we'll take it from there. No pressure either way!"
+  },
+};
+
+const RECEPTIONIST_TOUCHES = [
+  { kind: 'touch_30m', delayMs: 30 * 60 * 1000 },
+  { kind: 'touch_2h',  delayMs: 2  * 60 * 60 * 1000 },
+  { kind: 'touch_6h',  delayMs: 6  * 60 * 60 * 1000 },
+  { kind: 'touch_24h', delayMs: 24 * 60 * 60 * 1000 },
+  { kind: 'touch_48h', delayMs: 48 * 60 * 60 * 1000 },
+  { kind: 'touch_72h', delayMs: 72 * 60 * 60 * 1000 },
+  { kind: 'touch_7d',  delayMs: 7  * 24 * 60 * 60 * 1000 },
+  { kind: 'touch_10d', delayMs: 10 * 24 * 60 * 60 * 1000 },
+  { kind: 'touch_14d', delayMs: 14 * 24 * 60 * 60 * 1000 },
+  { kind: 'touch_21d', delayMs: 21 * 24 * 60 * 60 * 1000 },
+];
+
 const NURTURE_INTERVALS_MS: Record<string, number> = {
   touch_1h:   1  * 60 * 60 * 1000,         // 1h  — quick check-in, assume they got busy
   touch_6h:   6  * 60 * 60 * 1000,         // 6h  — route/scarcity angle
@@ -1084,6 +1300,23 @@ async function scheduleNextNurture(tenantId: string, leadId: number, conversatio
   });
 }
 
+async function scheduleReceptionistNurture(tenantId: string, leadId: number, conversationId: number) {
+  // Cancel any existing scheduled jobs first (idempotent — safe to call on every assistant turn)
+  await cancelOpenNurtureForLead(leadId);
+  // Schedule all 10 touches upfront from now
+  for (const touch of RECEPTIONIST_TOUCHES) {
+    const fireAt = new Date(Date.now() + touch.delayMs).toISOString();
+    await scheduleNurture({
+      tenant_id:       tenantId,
+      lead_id:         leadId,
+      conversation_id: conversationId,
+      kind:            touch.kind,
+      fire_at:         fireAt,
+      payload:         { receptionist: true } as Record<string, unknown>,
+    });
+  }
+}
+
 /**
  * Fire a single nurture job. Called by the cron loop.
  */
@@ -1108,6 +1341,10 @@ export async function fireNurtureJob(opts: {
   if (conversation.id !== conversationId) {
     return { ok: false, reason: "conversation mismatch" };
   }
+  // Do not fire nurture for terminal conversation states
+  if (conversation.status === 'stopped' || conversation.status === 'handoff' || conversation.status === 'completed') {
+    return { ok: false, reason: `conversation status=${conversation.status}` };
+  }
   if (conversation.status !== "active") {
     return { ok: false, reason: `conversation status=${conversation.status}` };
   }
@@ -1117,6 +1354,65 @@ export async function fireNurtureJob(opts: {
   if (conversation.last_role === "user") {
     return { ok: false, reason: "customer replied first" };
   }
+
+  // ─── RECEPTIONIST MODE: send direct SMS template (no LLM) ──────────────────────────
+  if ((cfg as any).mode === 'receptionist') {
+    const variants = receptionistNudgeMap[kind];
+    if (!variants) return { ok: false, reason: `no receptionist nudge for ${kind}` };
+
+    const variant = ((conversation as any).nurture_variant ?? 'A') as 'A' | 'B';
+    const firstName = lead.full_name?.split(' ')[0] ?? lead.full_name ?? 'there';
+    const nudgeText = variants[variant].replace(/\[name\]/gi, firstName);
+
+    // Pre-send guard — must run even for templates
+    const guard = preSendGuard({
+      message: nudgeText,
+      mode:    (cfg as any).mode ?? null,
+      isDnc:   false, // DNC already checked above
+    });
+    if (!guard.ok) {
+      console.error(`[guard] BLOCKED receptionist nurture to ${lead.phone}: ${guard.reason}`);
+      return { ok: false, reason: `blocked by guard: ${guard.reason}` };
+    }
+
+    // Log the system annotation
+    await insertConversationMessage({
+      conversation_id: conversation.id,
+      tenant_id:       tenant.id,
+      role:            'system',
+      body:            `[Receptionist nurture ${kind} variant ${variant}]`,
+      twilio_sid:      null, model_used: null, tokens_in: null, tokens_out: null, cost_cents: null, error: null,
+    });
+
+    // Send directly via Twilio (no LLM)
+    try {
+      const { sendSms: sendSmsDirect } = await import('./twilio.js');
+      const sid = await sendSmsDirect(lead.phone, nudgeText, tenant.twilio_from);
+      await insertConversationMessage({
+        conversation_id: conversation.id,
+        tenant_id:       tenant.id,
+        role:            'assistant',
+        body:            nudgeText,
+        twilio_sid:      (sid as any)?.sid ?? null,
+        model_used:      'template',
+        tokens_in:       null, tokens_out: null, cost_cents: 0, error: null,
+      });
+      await updateConversation(conversation.id, {
+        last_message_at: new Date().toISOString(),
+        last_role:       'assistant' as const,
+        total_messages:  conversation.total_messages + 1,
+      });
+      // Mirror to Discord thread
+      const { mirrorSmsToThread: mirror } = await import('./discord.js');
+      if ((conversation as any).discord_thread_id) {
+        await mirror((conversation as any).discord_thread_id, 'assistant', nudgeText, null, null, true).catch(() => {});
+      }
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, reason: err?.message ?? String(err) };
+    }
+  }
+  // ─── END RECEPTIONIST MODE ─────────────────────────────────────────────────────────
 
   // Inject a system note into the conversation transcript so the LLM knows
   // what *kind* of follow-up this is. We log it as a "system" role message,

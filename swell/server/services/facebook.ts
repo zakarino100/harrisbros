@@ -27,6 +27,8 @@ export function parseFieldData(fieldData: Array<{ name: string; values?: string[
       raw["when_are_you_looking_to_get_this_done?"] ||
       raw.timeline || null,
     squareFootage:
+      raw["approximate_home_size?"] ||
+      raw["approximate_home_size"] ||
       raw["what's the approximate square footage of your home?"] ||
       raw["what's_the_approximate_square_footage_of_your_home?"] ||
       raw.square_footage || null,

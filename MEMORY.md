@@ -9,6 +9,7 @@
 
 - Call the user Boss or Zak.
 - Timezone: America/New_York.
+- **Discord user ID: `1385472518978011266`** — use this to DM Zak directly from any bot when needed.
 - Primary current focus: identify and execute the highest-leverage actions to grow home services businesses.
 
 ## Current business operating context
@@ -21,7 +22,7 @@
 - Blue Ocean brand voice: Hormozi-style — direct, value-first, no hype, results-driven. Logo is black/white/cyan wave mark.
 - **Scout** = WPW's internal Discord bot (server assistant). **Luna** = WPW's customer-facing AI SMS persona (what leads talk to). Do not confuse.
 - **Hayden** = Swell cross-tenant SMS responder (all Blue Ocean clients: Harris Bros, MackWash, Showroom, etc.) — NOT customer-facing persona, just internal API.
-- **Gia** = Mop Mafia's customer-facing AI SMS persona. Bot token: MTUwMTA4NDc0MjcwMTgwOTc5NQ.GN58HZ.k_zpLdlELWiADdVPWZ59glEjX52HJhU2x9TWkI (stored in Swell Replit secret DISCORD_BOT_TOKEN and Mop Mafia CRM Replit). Gia gathers info only — does NOT quote or book. Hands off to owner (Zak's mom) via Discord.
+- **Gia** = Mop Mafia's customer-facing AI SMS persona. Bot token: stored in Replit secrets only — never write tokens in notes. Gia gathers info only — does NOT quote or book. Hands off to owner (Zak's mom) via Discord.
 - **Hayden** = Swell's cross-tenant SMS sales AI (MackWash, Harris Bros). Quotes and closes. Different role from Gia.
 - Wolf Pack Wash has a large existing content library (images/videos) — needs curation and scheduling, not creative generation.
 - Mop Mafia and Blue Ocean need creative generated from scratch — AI copy, templates, and visuals.
@@ -110,6 +111,57 @@ Core goal: every Blue Ocean client gets an AI that auto-responds to inbound FB l
   - Tenants automatically get them — no override.
 
 ## MackWash Pressure Washing (NEW Blue Ocean client — 2026-05-01)
+
+- **Mack's Discord user ID:** `1327340335675736125`
+- Use this for @mentions in MackWash Discord notifications
+
+### WORKFLOW CHANGE (2026-05-13)
+
+**NEW HAYDEN RECEPTIONIST MODE**:
+- Hayden now acts as intake/receptionist, NOT closer
+- **Gather flow**: Greet → identify service → ask for address, last service date, property details → hand off with `<<HANDOFF: info_complete>>`
+- **Never quote or price** — all pricing discussion is Mack's job
+- **Model**: Sonnet (high-quality responses for multi-turn conversations)
+- **Handoff trigger**: When information is complete, outputs `<<HANDOFF: info_complete>>` and Discord thread is created for Mack
+- **Discord flow**: Mack sees full conversation + all gathered info + reason for handoff, can accept/decline
+- **Ownership**: Mack is the closer; Hayden is the intake desk
+
+**Why this change**: Mack said he wants Hayden to be the initial contact (warm greeting, qualification) but NOT to provide estimates. This keeps leads engaged while deferring all commercial decisions to Mack. Reduces AI error risk on pricing while maximizing Mack's control.
+
+**Important notes**:
+- ✅ Twilio credits are now replenished — can send SMS again
+- ⚠️ DO NOT retry old messages to leads from the SMS outage period
+- 🔄 Check which of yesterday's 2 closed leads need status updates in CRM (Mack will identify them)
+
+**Owner Chat (Mack ↔ Hayden via SMS)**:
+- Mack can text his MackWash number from his personal phone to ask questions about leads/pipeline
+- Hayden responds via SMS with stats (leads today, new leads, reply rates, etc.)
+- Questions outside scope (platform costs, other clients, etc.) get polite deflections
+- All owner interactions are logged to Discord #leads channel
+- Mack can ask about specific leads and Hayden will pull stats from the pipeline
+- Keep SMS replies ≪160 characters when possible
+
+### BUG FIXES (2026-05-13)
+
+**Double Discord Messages Bug** ❌→✅
+- **Issue**: Every customer SMS was being logged to Discord twice — once as "Lead:" and once as "Customer:"
+- **Root cause**: Two parallel code paths were both mirroring messages to Discord:
+  1. `insertConversationMessage()` in queries.ts had an async auto-mirror function posting with hardcoded "Customer" label
+  2. `conversation.ts` was calling `mirrorSmsToThread()` separately, posting with "Lead" label
+- **Fix**: Removed the auto-mirror from `insertConversationMessage()`. All Discord mirroring now goes through explicit `mirrorSmsToThread()` calls in conversation.ts, which have proper sender context.
+- **Status**: ✅ Fixed and compiled, ready to deploy
+
+**Receptionist Mode Implementation** ✅
+- Added `mode` column to `swell_ai_configs` table
+- Created dedicated receptionist system prompt (no pricing, no quoting, just info-gathering)
+- MackWash config: `mode=receptionist`, `model_primary=haiku`, `custom_brand_notes=NULL`
+- When Hayden sees `mode=receptionist`, it returns a completely different system prompt that:
+  - Greets, identifies service type, gathers address, last service date, property details, special requests
+  - Deflects price questions without quoting
+  - Outputs `<<HANDOFF: info_complete>>` when ready to hand off to Mack
+  - Never mentions pricing, appointments, or discounts
+- **Status**: ✅ Deployed to Supabase, code compiled and ready
+
 
 - Owner: Mack. New Blue Ocean client. Monthly retainer **$1,200/mo** if we deliver leads through FB ads.
 - Located in Douglasville, GA (suburban Atlanta). Address on FB: 6507 Cowan Mill Rd, Douglasville, GA 30116.
@@ -362,6 +414,10 @@ Note: SSH shell does NOT have node/pnpm on PATH (they're only available inside t
 - Shared continuity across web and Discord should rely on workspace memory files, not assumed live cross-session memory.
 - Discord access is working in the allowlisted #coool channel after fixing the guild/channel config to use real Discord IDs.
 
+## WPW Discord Channel Structure (updated 2026-05-10)
+- **#reviews** (1503198049399341267) — review request send notifications (outbound, one per customer)
+- **#how-did-we-do** (1503198360071569538) — per-customer thread for review SMS replies
+
 ## WPW Discord Channel Structure (confirmed 2026-05-08)
 - **Scout** = WPW's internal Discord bot (all notifications). **Luna** = customer-facing SMS persona only, never posts to Discord.
 - **#leads** (1439375021586911285) — new organic leads and service inquiries
@@ -409,15 +465,106 @@ Note: SSH shell does NOT have node/pnpm on PATH (they're only available inside t
 3. **Recovery plan documented**: `/Users/zak/.openclaw/workspace/BOT_RECOVERY_PLAN.md` (full checklist)
 
 ### Action Items for Boss
-- [ ] Reset Hayden bot token in Discord Developer Portal (https://discord.com/developers/applications → 1499988099428782172)
-- [ ] Update Swell `.env` with new Hayden token
-- [ ] Deploy Swell code changes (git push to Replit)
-- [ ] Reset Gia bot token (Mop Mafia's Replit) — same process
-- [ ] Apply exponential backoff fix to Gia's Discord gateway code
-- [ ] Run backfill: `BACKFILL_HOURS=24 npx ts-node scripts/discord-backfill.ts`
+- [x] Reset Hayden bot token in Discord Developer Portal (done 5/9 4:25pm)
+- [x] Update Swell `.env` with new Hayden token (done 5/9 4:25pm)
+- [x] Deploy Swell code changes to Replit (done 5/9 4:25pm)
+- [x] Reset Gia bot token (Mop Mafia's Replit) (done 5/9 4:25pm)
+- [x] Apply exponential backoff fix to Gia's Discord gateway code (done via code fix to Swell 5/9 4:17pm)
+- [x] Run backfill (done 5/9 4:25pm — zero missed leads, as expected)
 - [ ] Test both bots with fake leads
 
 ### Prevention
 - Monitor bot token usage monthly via Discord audit logs
 - Set up health check that alerts if bot reconnects >3 times in 30 minutes
 - Archive gateway connection/disconnect events for debugging
+
+## Swell Tenant Updates (May 10, 2026 — 20:33 EDT)
+
+### Harris Bros Offboarding
+- **Status:** ✅ COMPLETED
+- Harris Bros is no longer a client (Rowdy couldn't stick it out for financial reasons)
+- Deal was Zak gets 15% of revenue brought in
+- **Actions taken:**
+  - Database: Tenant `harris_bros` DISABLED in swell_tenants table ✅
+  - Database: Password hash changed to `nopressurelaunchstop` ✅
+  - Result: Lead sync will skip Harris Bros (enabled=FALSE) effective immediately
+  - Total leads orphaned: 24 (will not sync further)
+
+### MackWash Discord Notification Failure (Investigation Complete)
+
+**Issue:** Lead #50 (Faisal Mohammad, May 10 @ 12:41 EDT) came in but NO Discord thread was created, even though:
+- Lead was successfully stored in DB ✅
+- Conversation was initiated (Hayden sent opening) ✅
+- 9 messages exchanged (lead evaluated, AI determined out-of-service-area) ✅
+- But: discord_thread_id remained NULL ❌
+
+**Root cause:** Discord notification is failing silently in the lead-sync loop. The `notifyNewLeadDiscord()` function is never creating the Discord thread because:
+1. Lead sync calls `notifyNewLeadDiscord()` in a `.then()` / `.catch()` handler
+2. If Discord API call fails (posting message to channel), function returns null immediately
+3. No thread is created, no error is surfaced to the lead record
+4. Conversation proceeds without Discord thread
+
+**Likely causes:**
+- Discord bot token is invalid/revoked (similar to May 9 incident)
+- Discord bot doesn't have permissions in the guild/channel
+- Guild ID or channel ID is incorrect (unlikely — env vars are correct)
+- Network/API timeout on Discord API
+
+**Configuration verified as correct:**
+- MACKWASH_DISCORD_GUILD_ID=1499992504370729022 ✅
+- MACKWASH_DISCORD_LEADS_CHANNEL_ID=1499992549727932436 ✅
+- DISCORD_BOT_TOKEN configured ✅
+- MackWash is enabled in DB ✅
+- MackWash FB form ID configured (1177015427806726) ✅
+
+**ROOT CAUSE IDENTIFIED:**
+- Discord bot gateway connection is failing with code 4004 (Authentication failed)
+- This means DISCORD_BOT_TOKEN is invalid/revoked/expired
+- Bot cannot authenticate with Discord API, so no thread creation is possible
+- Token in .env: `[token-redacted]`
+
+**Immediate fix required:**
+- [ ] **URGENT:** Reset Hayden bot token in Discord Developer Portal
+- [ ] Generate new token for Hayden (Blue Ocean Discord app)
+- [ ] Update .env in Swell Replit with new token
+- [ ] Restart Swell server
+- [ ] Test with a fake MackWash lead to verify Discord thread creation works
+- [ ] Backfill thread for Lead #50 (Faisal Mohammad) once token is fixed
+
+**Code improvements deployed (v0.2):**
+- [ ] ✅ Better error logging in lead-sync Discord notification (activity logs now capture Discord failures)
+- [ ] ✅ Harris Bros tenant disabled
+- [ ] ✅ Harris Bros password changed to nopressurelaunchstop
+- [ ] ✅ SWELL_ADMIN_SECRET added to .env for future admin API access
+
+## Server Hardening (May 10, 2026)
+
+### Error handling added to both servers
+- `uncaughtException` + `unhandledRejection` handlers added → server stays alive on unexpected errors instead of crashing
+- `SIGTERM`/`SIGINT` graceful shutdown added to both
+- Self-healing wrapper scripts (`run.sh`) created for both Replits — if node process exits, bash restarts it with exponential backoff (5s → 10s → 20s → ... → 60s max)
+
+### Files:
+- Swell: `swell/server/index.ts` (error guards), `swell/run.sh` (wrapper)
+- HH Backend: `hh-backend-fresh/artifacts/api-server/src/index.ts` (error guards), `hh-backend-fresh/run.sh` (wrapper)
+
+### Monitoring crons active:
+- Swell Health Check: every 30min (pings /api/health)
+- HH + Swell Keepalive: every 4min
+- Discord Notification check: every 10min
+
+### Discord routing (WPW reactivation) — FINAL state:
+- ALL replies → thread in #reactivation (1502357456452587612), one per customer
+- human_handoff → also alerts #updates (1502363455779504198) with @Matthew tag + thread link
+- Review replies → #how-did-we-do (1503198360071569538) threads
+- Review send notifications → #reviews (1503198049399341267)
+- #convos threads from old backfill → Zak will delete (replaced by #reactivation threads)
+
+### WPW Review Campaign — Scheduled for May 11, 2026
+- Campaigns #3 (Variant A, 42 sends) and #4 (Variant B, 41 sends)
+- 74/83 names fixed (first names from leads table), 9 still "Hey there"
+- No duplicates, no bad numbers, no prior review request overlap
+- Start: 9:00 AM EDT May 11 (cron triggers campaign)
+- Drip: 5/hour, 9am-7pm window
+- EOD report: 8:00 PM EDT May 11 (A/B results to Boss)
+- Google review link: https://g.page/r/CVeCBRNnDF0_EBM/review ✅ verified working

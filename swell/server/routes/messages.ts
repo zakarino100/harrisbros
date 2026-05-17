@@ -28,7 +28,7 @@ router.get("/api/messages", async (req, res) => {
       JOIN swell_leads l ON l.id = c.lead_id
       LEFT JOIN LATERAL (
         SELECT body, role, created_at FROM swell_conversation_messages
-        WHERE conversation_id = c.id AND role IN ('user','assistant','rep')
+        WHERE conversation_id = c.id AND role IN ('user','assistant','rep') AND (error IS NULL OR error != '_hidden')
         ORDER BY created_at DESC LIMIT 1
       ) m ON true
       WHERE c.tenant_id = ${req.tenant!.id}
@@ -58,6 +58,7 @@ router.get("/api/messages/:conversationId", async (req, res) => {
       JOIN swell_leads l ON l.id = c.lead_id
       WHERE m.conversation_id = ${convId}
         AND c.tenant_id = ${req.tenant!.id}
+        AND (m.error IS NULL OR m.error != '_hidden')
       ORDER BY m.created_at ASC
       LIMIT 500
     `;
@@ -80,18 +81,13 @@ router.get("/api/messages/:conversationId", async (req, res) => {
       leadPhone: firstRow.phone,
       status: conv.status,
       handoffReason: conv.handoff_reason,
+      aiPaused: conv.ai_paused ?? false,
       totalMessages: conv.total_messages,
-      totalCostCents: conv.total_cost_cents,
       messages: rows.map((r: any) => ({
         id: r.id,
         role: r.role,
         body: r.body,
         createdAt: r.created_at,
-        modelUsed: r.model_used,
-        tokensIn: r.tokens_in,
-        tokensOut: r.tokens_out,
-        costCents: r.cost_cents,
-        error: r.error,
       })),
     });
   } catch (err) {
@@ -283,6 +279,35 @@ router.patch("/api/messages/:conversationId/resume-ai", async (req, res) => {
   } catch (err) {
     console.error("[messages resume-ai]", err);
     res.status(500).json({ error: "Failed to resume AI" });
+  }
+});
+
+// PATCH /api/messages/:conversationId/ai-toggle — manually pause or resume AI for a specific lead
+router.patch("/api/messages/:conversationId/ai-toggle", async (req, res) => {
+  try {
+    const convId = Number(req.params.conversationId);
+    if (!Number.isInteger(convId)) return res.status(400).json({ error: "Invalid conversation ID" });
+
+    const tenant = req.tenant!;
+    const rows = await sql`
+      SELECT c.id, c.ai_paused, l.full_name
+      FROM swell_conversations c
+      JOIN swell_leads l ON l.id = c.lead_id
+      WHERE c.id = ${convId} AND c.tenant_id = ${tenant.id}
+      LIMIT 1
+    `;
+    if (!rows.length) return res.status(404).json({ error: "Conversation not found" });
+
+    const conv = rows[0] as any;
+    const newPaused = !conv.ai_paused;
+
+    await sql`UPDATE swell_conversations SET ai_paused = ${newPaused} WHERE id = ${convId}`;
+
+    console.log(`[ai-toggle] Conv ${convId} (${conv.full_name}): ai_paused → ${newPaused}`);
+    res.json({ ok: true, ai_paused: newPaused });
+  } catch (err) {
+    console.error("[ai-toggle]", err);
+    res.status(500).json({ error: "Failed to toggle AI" });
   }
 });
 

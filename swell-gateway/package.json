@@ -1,0 +1,13 @@
+{
+  "name": "swell-discord-gateway",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node gateway.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.20.0",
+    "postgres": "^3.4.4",
+    "@anthropic-ai/sdk": "^0.20.0"
+  }
+}

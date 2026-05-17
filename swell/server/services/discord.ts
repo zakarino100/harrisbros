@@ -108,8 +108,8 @@ export async function notifyNewLeadDiscord(
     fields: [
       { name: "📞 Phone", value: lead.phone ?? "—", inline: true },
       { name: "📧 Email", value: lead.email ?? "—", inline: true },
-      ...(lead.homeSize ? [{ name: "📐 Home Size", value: lead.homeSize, inline: true }] : []),
-      ...(lead.timeline ? [{ name: "⏰ Timeline", value: lead.timeline, inline: true }] : []),
+      ...(lead.homeSize ? [{ name: "📐 Home Size", value: lead.homeSize.replace(/_/g, " "), inline: true }] : []),
+      ...(lead.timeline ? [{ name: "⏰ Timeline", value: lead.timeline.replace(/_/g, " ").replace(/\//g, "/"), inline: true }] : []),
       ...(notes ? [{ name: "📝 Notes", value: notes, inline: false }] : []),
     ],
     footer: { text: `Lead ID: ${lead.leadId} · ${tenantName}` },
@@ -153,10 +153,23 @@ export async function mirrorSmsToThread(
   role: "assistant" | "user",
   body: string,
   senderName?: string | null,
+  sendError?: string | null,
+  sentViaSms: boolean = true,
 ): Promise<void> {
   if (!threadId || !body) return;
-  const label = role === "assistant" ? "🤖 **Hayden**" : `💬 **${senderName ?? "Lead"}**`;
-  const content = `${label}: ${body.slice(0, 1900)}`;
+  let label: string;
+  if (role === "assistant") {
+    if (!sentViaSms) {
+      label = `🔒 **[Internal — not sent to customer]**`;
+    } else {
+      const badge = sendError ? "❌ **FAILED** *(never reached customer)*" : "✅ **SENT**";
+      label = `🤖 **Hayden** — ${badge}`;
+    }
+  } else {
+    label = `💬 **${senderName ?? "Customer"}**`;
+  }
+  const errorDetail = sendError ? `\n> ⚠️ Twilio error: \`${sendError.slice(0, 120)}\`` : "";
+  const content = `${label}\n${body.slice(0, 1800)}${errorDetail}`;
   const result = await discordRequest("POST", `/channels/${threadId}/messages`, { content });
   if (!result.ok) console.error(`[discord] mirrorSmsToThread failed: ${result.error}`);
 }
@@ -336,4 +349,65 @@ export async function postToThread(threadId: string, content: string): Promise<b
     content: content.slice(0, 2000),
   });
   return result.ok;
+}
+
+
+// ─── DM Zak — for situations Hayden needs help with ─────────────────────────
+
+export async function dmZak(message: string): Promise<void> {
+  const zakId = process.env.DISCORD_ZAK_USER_ID ?? "";
+  if (!zakId) { console.warn("[discord] DISCORD_ZAK_USER_ID not set"); return; }
+
+  // Open a DM channel with Zak
+  const token = botToken();
+  if (!token) return;
+  const dmRes = await fetch(`${DISCORD_API}/users/@me/channels`, {
+    method: "POST",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ recipient_id: zakId }),
+  });
+  if (!dmRes.ok) { console.error("[discord] Failed to open DM with Zak"); return; }
+  const dmChannel = await dmRes.json() as any;
+
+  await fetch(`${DISCORD_API}/channels/${dmChannel.id}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ content: `🧠 **Hayden needs your input:**\n${message.slice(0, 1900)}` }),
+  });
+  console.log("[discord] DM sent to Zak");
+}
+
+// ── Notify owner: lead replied while AI is paused ──────────────────────────────
+
+export async function notifyLeadRepliedWhilePaused(opts: {
+  tenantId: string;
+  threadId: string | null;
+  leadName: string;
+  message: string;
+  ownerDiscordId: string;
+}): Promise<void> {
+  const { tenantId, threadId, leadName, message, ownerDiscordId } = opts;
+
+  const preview = message.length > 200 ? message.slice(0, 200) + "..." : message;
+  const content =
+    `⚠️ **${leadName}** replied while Hayden is paused:\n` +
+    `> ${preview}\n\n` +
+    `<@${ownerDiscordId}> — AI is off for this lead. Two options:\n` +
+    `• **Reply here** to respond manually (message goes straight to them via SMS)\n` +
+    `• Type **\`!resume\`** to re-enable Hayden and let her take it from here`;
+
+  // Post to existing handoff thread if there is one
+  if (threadId) {
+    await postToThread(threadId, content);
+    return;
+  }
+
+  // No thread — fall back to leads channel
+  const leadsChannelId = tenantEnv(tenantId, "DISCORD_LEADS_CHANNEL_ID");
+  if (!leadsChannelId) {
+    console.warn(`[discord] notifyLeadRepliedWhilePaused: no leads channel for ${tenantId}`);
+    return;
+  }
+  await discordRequest("POST", `/channels/${leadsChannelId}/messages`, { content });
+  console.log(`[discord] Paused-lead reply notification sent for ${tenantId} / ${leadName}`);
 }

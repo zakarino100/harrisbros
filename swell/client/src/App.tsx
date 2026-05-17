@@ -22,6 +22,7 @@ export function App() {
   const [state, setState] = useState<State>({ kind: "boot" });
   const [currentPage, setCurrentPage] = useState<"leads" | "stats" | "calls" | "messages" | "schedule" | "sales" | "customers" | "map" | "settings">("leads");
   const [selectedLeadForMessage, setSelectedLeadForMessage] = useState<number | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
   const [showFloatingDialer, setShowFloatingDialer] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [adminSecret, setAdminSecret] = useState(localStorage.getItem("admin_secret") || "");
@@ -154,7 +155,7 @@ export function App() {
                 ? "bg-[var(--color-gold)] text-black"
                 : "text-[var(--color-text-soft)] hover:bg-[var(--color-bg-soft)]"
             }`}
-            style={currentPage === "leads" ? { background: state.me.tenant.brandColor } : undefined}
+            
           >
             Leads
           </button>
@@ -165,7 +166,7 @@ export function App() {
                 ? "bg-[var(--color-gold)] text-black"
                 : "text-[var(--color-text-soft)] hover:bg-[var(--color-bg-soft)]"
             }`}
-            style={currentPage === "stats" ? { background: state.me.tenant.brandColor } : undefined}
+            
           >
             📊 Stats
           </button>
@@ -176,7 +177,7 @@ export function App() {
                 ? "bg-[var(--color-gold)] text-black"
                 : "text-[var(--color-text-soft)] hover:bg-[var(--color-bg-soft)]"
             }`}
-            style={currentPage === "calls" ? { background: state.me.tenant.brandColor } : undefined}
+            
           >
             📞 Calls
           </button>
@@ -187,7 +188,7 @@ export function App() {
                 ? "bg-[var(--color-gold)] text-black"
                 : "text-[var(--color-text-soft)] hover:bg-[var(--color-bg-soft)]"
             }`}
-            style={currentPage === "messages" ? { background: state.me.tenant.brandColor } : undefined}
+            
           >
             Messages
           </button>
@@ -198,7 +199,7 @@ export function App() {
                 ? "bg-[var(--color-gold)] text-black"
                 : "text-[var(--color-text-soft)] hover:bg-[var(--color-bg-soft)]"
             }`}
-            style={currentPage === "sales" ? { background: state.me.tenant.brandColor } : undefined}
+            
           >
             💰 Sales
           </button>
@@ -209,7 +210,7 @@ export function App() {
                 ? "bg-[var(--color-gold)] text-black"
                 : "text-[var(--color-text-soft)] hover:bg-[var(--color-bg-soft)]"
             }`}
-            style={currentPage === "customers" ? { background: state.me.tenant.brandColor } : undefined}
+            
           >
             👥 Customers
           </button>
@@ -220,7 +221,7 @@ export function App() {
                 ? "bg-[var(--color-gold)] text-black"
                 : "text-[var(--color-text-soft)] hover:bg-[var(--color-bg-soft)]"
             }`}
-            style={currentPage === "map" ? { background: state.me.tenant.brandColor } : undefined}
+            
           >
             📍 Map
           </button>
@@ -231,7 +232,7 @@ export function App() {
                 ? "bg-[var(--color-gold)] text-black"
                 : "text-[var(--color-text-soft)] hover:bg-[var(--color-bg-soft)]"
             }`}
-            style={currentPage === "schedule" ? { background: state.me.tenant.brandColor } : undefined}
+            
           >
             Schedule
           </button>
@@ -242,7 +243,7 @@ export function App() {
                 ? "bg-[var(--color-gold)] text-black"
                 : "text-[var(--color-text-soft)] hover:bg-[var(--color-bg-soft)]"
             }`}
-            style={currentPage === "settings" ? { background: state.me.tenant.brandColor } : undefined}
+            
           >
             ⚙️ Settings
           </button>
@@ -273,7 +274,7 @@ export function App() {
                       ? "bg-[var(--color-gold)] text-black"
                       : "text-[var(--color-text-soft)] hover:bg-[var(--color-bg-soft)]"
                   }`}
-                  style={currentPage === page ? { background: state.me.tenant.brandColor } : undefined}
+
                 >
                   {label}
                 </button>
@@ -291,6 +292,8 @@ export function App() {
               setSelectedLeadForMessage(leadId);
               setCurrentPage("messages");
             }}
+            initialLeadId={selectedLeadId}
+            onInitialLeadConsumed={() => setSelectedLeadId(null)}
           />
         )}
         {currentPage === "stats" && <Stats me={state.me} />}
@@ -304,7 +307,7 @@ export function App() {
         )}
         {currentPage === "sales" && <Sales me={state.me} />}
         {currentPage === "customers" && <Customers me={state.me} />}
-        {currentPage === "map" && <ServiceMap me={state.me} />}
+        {currentPage === "map" && <ServiceMap me={state.me} onSelectLead={(id) => { setSelectedLeadId(id); setCurrentPage("leads"); }} />}
         {currentPage === "schedule" && <Schedule me={state.me} />}
         {currentPage === "settings" && <Settings me={state.me} />}
       </div>

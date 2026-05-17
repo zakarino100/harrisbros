@@ -180,12 +180,41 @@ async function syncTenant(tenant: {
               name: newLead.full_name,
               phone: newLead.phone,
               email: newLead.email,
+              homeSize: parsed.squareFootage ?? null,
+              timeline: parsed.timeline ?? null,
             }).then(async (threadId) => {
               if (threadId) {
                 (newLead as any).discord_thread_id = threadId;
                 await sql`UPDATE swell_leads SET discord_thread_id = ${threadId} WHERE id = ${newLead.id}`.catch(() => {});
+                await logActivity({
+                  lead_id: newLead.id,
+                  tenant_id: fullTenant.id,
+                  type: "discord_thread_created",
+                  direction: "internal",
+                  body: `Discord thread created: ${threadId}`,
+                  metadata: { threadId },
+                }).catch(() => {});
+              } else {
+                await logActivity({
+                  lead_id: newLead.id,
+                  tenant_id: fullTenant.id,
+                  type: "discord_thread_failed",
+                  direction: "internal",
+                  body: `Discord thread creation returned null (check bot permissions, token, or guild/channel IDs)`,
+                  metadata: { guildId: process.env[`${fullTenant.id.toUpperCase()}_DISCORD_GUILD_ID`], channelId: process.env[`${fullTenant.id.toUpperCase()}_DISCORD_LEADS_CHANNEL_ID`] },
+                }).catch(() => {});
               }
-            }).catch((e: any) => console.error("[lead-sync] discord failed:", e?.message));
+            }).catch((e: any) => {
+              console.error("[lead-sync] discord failed:", e?.message, e?.stack);
+              logActivity({
+                lead_id: newLead.id,
+                tenant_id: fullTenant.id,
+                type: "discord_thread_error",
+                direction: "internal",
+                body: `Discord notification exception: ${e?.message}`,
+                metadata: { error: e?.message, stack: e?.stack },
+              }).catch(() => {});
+            });
 
             // CAPI
             capiLeadCreated({
