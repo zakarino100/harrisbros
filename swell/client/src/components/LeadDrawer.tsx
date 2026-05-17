@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { LeadDetail } from "../lib/api";
 
+
 interface Props {
   open: boolean;
   lead: LeadDetail | null;
@@ -18,6 +19,12 @@ export function LeadDrawer({ open, lead, loading, brandColor, onClose, onPatch }
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
   const [savingField, setSavingField] = useState<string | null>(null);
+  const [aiPaused, setAiPaused] = useState(lead?.conversation?.aiPaused ?? false);
+  const [togglingAi, setTogglingAi] = useState(false);
+
+  useEffect(() => {
+    setAiPaused(lead?.conversation?.aiPaused ?? false);
+  }, [lead?.conversation?.aiPaused]);
 
   useEffect(() => {
     setNotesDraft(lead?.notes ?? "");
@@ -211,13 +218,41 @@ export function LeadDrawer({ open, lead, loading, brandColor, onClose, onPatch }
             {/* Hayden conversation transcript */}
             {lead.conversation && lead.conversation.messages.length > 0 && (
               <section>
-                <div className="flex items-baseline justify-between mb-2">
+                <div className="flex items-center justify-between mb-2">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
                     Hayden · SMS Transcript
                   </p>
-                  <span className={`pill pill-${conversationStatusPill(lead.conversation.status)}`}>
-                    {lead.conversation.status.replace(/_/g, " ")}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`pill pill-${conversationStatusPill(lead.conversation.status)}`}>
+                      {lead.conversation.status.replace(/_/g, " ")}
+                    </span>
+                    {/* AI on/off toggle */}
+                    <button
+                      disabled={togglingAi}
+                      onClick={async () => {
+                        if (!lead.conversation) return;
+                        setTogglingAi(true);
+                        try {
+                          const res = await fetch(`/api/messages/${lead.conversation.id}/ai-toggle`, { method: "PATCH", credentials: "include" });
+                          if (res.ok) setAiPaused((p) => !p);
+                        } finally {
+                          setTogglingAi(false);
+                        }
+                      }}
+                      title={aiPaused ? "AI is OFF — click to turn on" : "AI is ON — click to pause"}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                        togglingAi ? "opacity-50 cursor-wait" : "cursor-pointer"
+                      } ${
+                        aiPaused ? "bg-red-500/70" : "bg-green-500/70"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                          aiPaused ? "translate-x-1" : "translate-x-4.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   {lead.conversation.messages
@@ -261,7 +296,7 @@ export function LeadDrawer({ open, lead, loading, brandColor, onClose, onPatch }
                     ))}
                 </div>
                 <p className="text-[10px] text-[var(--color-text-faint)] uppercase tracking-widest text-center mt-2">
-                  {lead.conversation.totalMessages} msgs · ${(lead.conversation.totalCostCents / 100).toFixed(2)} ai cost
+                  {lead.conversation.totalMessages} msgs
                   {lead.conversation.handoffReason ? ` · ${lead.conversation.handoffReason}` : ""}
                 </p>
               </section>
